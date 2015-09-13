@@ -38,4 +38,7 @@ except KeyboardInterrupt:
     pass
 finally:
     dgt.close()
+
+    pending = asyncio.Task.all_tasks(loop)
+    loop.run_until_complete(asyncio.gather(*pending))
     loop.close()

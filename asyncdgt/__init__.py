@@ -132,6 +132,7 @@ class Connection(pyee.EventEmitter):
             try:
                 self.connect_port(port)
             except serial.SerialException:
+                self.serial = None
                 LOGGER.exception("Could not connect to port %s", port)
             else:
                 return port
@@ -142,10 +143,17 @@ class Connection(pyee.EventEmitter):
         self.closed = False
         self.disconnect()
 
-        self.serial = serial.Serial(port,
+        self.serial = serial.Serial(
             stopbits=serial.STOPBITS_ONE,
             parity=serial.PARITY_NONE,
             bytesize=serial.EIGHTBITS)
+
+        self.serial.port = port
+
+        # Close once first to allow reconnecting after an interrupted
+        # connection.
+        self.serial.close()
+        self.serial.open()
 
         LOGGER.info("Connected to %s", port)
         self.emit("connected", port)
@@ -293,7 +301,6 @@ def auto_connect(port_globs, loop):
         connected = False
 
         while not connected and not dgt.closed:
-            print("Trying to connect")
             connected = dgt.connect()
 
             yield from asyncio.sleep(backoff)
