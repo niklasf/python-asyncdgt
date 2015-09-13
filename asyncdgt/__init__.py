@@ -214,7 +214,7 @@ class Connection(pyee.EventEmitter):
     *port_globs* is a list of glob expressions like ``["/dev/ttyACM*"]``. When
     connecting the first successful match will be used.
 
-    *loop* is the :module:`asyncio` event loop.
+    *loop* is the :mod:`asyncio` event loop.
     """
 
     def __init__(self, port_globs, loop):
@@ -371,7 +371,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_board(self):
-        """Get the current board position as a :cls:`asyncdgt.Board`."""
+        """Get the current board position as a :class:`asyncdgt.Board`."""
         self.board_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_BRD]))
@@ -420,7 +420,7 @@ class Connection(pyee.EventEmitter):
 
 def connect(port_globs, loop):
     """
-    Creates a DGT board connection.
+    Creates a :class:`asyncdgt.Connection`.
 
     Raises :exc:`IOError` when no board can be connected.
     """
@@ -429,7 +429,7 @@ def connect(port_globs, loop):
 
 def auto_connect(port_globs, loop, max_backoff=10.0):
     """
-    Creates a DGT bord connection.
+    Creates a :class:`asyncdgt.Connection`.
 
     If no board is available or the board gets disconnected, reconnection
     attempts will be made with exponential backoff.

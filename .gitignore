@@ -1,1 +1,4 @@
 venv
+docs/_build
+asyncdgt.egg-info
+asyncdgt/__pycache__
