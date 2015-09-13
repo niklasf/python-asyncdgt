@@ -360,8 +360,28 @@ class Connection(pyee.EventEmitter):
             self.battery_status = "".join(chr(c) for c in message if c)
             self.battery_status_received.set()
         elif message_id == MESSAGE_BIT | DGT_BWTIME:
-            # TODO: Handle this.
-            pass
+            self._process_bwtime(message)
+
+    def _process_bwtime(self, message):
+        if message[0] & 0x0f == 0x0A or message[3] == 0x0A:
+            print("Clock ack!")
+            ack0 = (message[1] & 0x7f) | (message[3] << 3) & 0x80
+            ack1 = (message[2] & 0x7f) | (message[3] << 2) & 0x80
+            ack2 = (message[4] & 0x7f) | (message[0] << 3) & 0x80
+            ack3 = (message[5] & 0x7f) | (message[0] << 2) & 0x80
+            if ack0 != 0x10:
+                print("ACK ERROR!")
+            else:
+                print("CLOCK ACK!")
+
+            if ack1 == 0x88:
+                self.emit("button_pressed", int(chr(ack3)))
+            elif ack1 == 0x09:
+                print("Clock is there")
+        elif any(message[:6]):
+            print("Time received")
+        else:
+            print("Other clock message")
 
     @asyncio.coroutine
     def get_version(self):

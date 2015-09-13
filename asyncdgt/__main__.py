@@ -68,6 +68,10 @@ def main(port_globs):
         print(board)
         print()
 
+    @dgt.on("button_pressed")
+    def on_button_pressed(button):
+        print("Button {0} pressed!".format(button))
+
     # Get some information.
     print("Version:", loop.run_until_complete((dgt.get_version())))
     print("Serial:", loop.run_until_complete(dgt.get_serialnr()))
