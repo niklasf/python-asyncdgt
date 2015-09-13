@@ -197,6 +197,7 @@ class Connection(pyee.EventEmitter):
         self.board_received = asyncio.Event(loop=loop)
 
         self.closed = False
+        self.connected = asyncio.Event(loop=loop)
         self.disconnect()
 
     def port_candidates(self):
@@ -240,7 +241,7 @@ class Connection(pyee.EventEmitter):
         self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
         self.serial.write(bytearray([DGT_SEND_BRD]))
 
-        self.clock_beep()
+        self.connected.set()
 
     def close(self):
         self.closed = True
@@ -271,6 +272,8 @@ class Connection(pyee.EventEmitter):
         self.message_id = 0
         self.message_buffer = b""
         self.remaining_message_length = 0
+
+        self.connected.clear()
 
         if was_connected:
             LOGGER.info("Disconnected")
@@ -322,6 +325,7 @@ class Connection(pyee.EventEmitter):
     @asyncio.coroutine
     def get_version(self):
         self.version_received.clear()
+        yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_VERSION]))
         yield from self.version_received.wait()
         return self.version
@@ -329,6 +333,7 @@ class Connection(pyee.EventEmitter):
     @asyncio.coroutine
     def get_board(self):
         self.board_received.clear()
+        yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_BRD]))
         yield from self.board_received.wait()
         return self.board.copy()
@@ -336,6 +341,7 @@ class Connection(pyee.EventEmitter):
     @asyncio.coroutine
     def get_serialnr(self):
         self.serialnr_received.clear()
+        yield from self.connected.wait()
         self.serial.write(bytearray([DGT_RETURN_SERIALNR]))
         yield from self.serialnr_received.wait()
         return self.serialnr
@@ -343,6 +349,7 @@ class Connection(pyee.EventEmitter):
     @asyncio.coroutine
     def get_long_serialnr(self):
         self.long_serialnr_received.clear()
+        yield from self.connected.wait()
         self.serial.write(bytearray([DGT_RETURN_LONG_SERIALNR]))
         yield from self.long_serialnr_received.wait()
         return self.long_serialnr
@@ -350,6 +357,7 @@ class Connection(pyee.EventEmitter):
     @asyncio.coroutine
     def get_battery_status(self):
         self.battery_status_received.clear()
+        yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_BATTERY_STATUS]))
         yield from self.battery_status_received.wait()
         return self.battery_status
