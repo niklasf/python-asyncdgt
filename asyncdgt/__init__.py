@@ -112,6 +112,7 @@ class Connection(pyee.EventEmitter):
         self.board = Board()
 
         self.version_received = asyncio.Event(loop=loop)
+        self.serial_nr_received = asyncio.Event(loop=loop)
         self.board_received = asyncio.Event(loop=loop)
 
         self.close()
@@ -154,6 +155,9 @@ class Connection(pyee.EventEmitter):
 
         self.version = None
         self.version_received.clear()
+
+        self.serial_nr = None
+        self.serial_nr_received.clear()
 
         self.board.clear()
         self.board_received.clear()
@@ -199,6 +203,9 @@ class Connection(pyee.EventEmitter):
         elif message_id == MESSAGE_BIT | DGT_VERSION:
             self.version = "%d.%d" % (message[0], message[1])
             self.version_received.set()
+        elif message_id == MESSAGE_BIT | DGT_SERIALNR:
+            self.serial_nr = "".join(chr(c) for c in message)
+            self.serial_nr_received.set()
 
     @asyncio.coroutine
     def get_version(self):
@@ -211,6 +218,13 @@ class Connection(pyee.EventEmitter):
         self.serial.write(bytearray([DGT_SEND_BRD]))
         yield from self.board_received.wait()
         return self.board.copy()
+
+    @asyncio.coroutine
+    def get_serial_nr(self):
+        self.serial_nr_received.clear()
+        self.serial.write(bytearray([DGT_RETURN_SERIALNR]))
+        yield from self.serial_nr_received.wait()
+        return self.serial_nr
 
     def clock_beep(self, ms=100):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])

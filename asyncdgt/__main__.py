@@ -30,6 +30,7 @@ def on_board(board):
 dgt.connect()
 print(loop.run_until_complete(dgt.get_version()))
 print(loop.run_until_complete(dgt.get_board()))
+print(loop.run_until_complete(dgt.get_serial_nr()))
 
 try:
     loop.run_forever()
