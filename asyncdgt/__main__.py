@@ -28,9 +28,9 @@ def on_board(board):
     print("FEN: {0}".format(board.board_fen()))
 
 dgt.connect()
-print(loop.run_until_complete(dgt.get_version()))
-print(loop.run_until_complete(dgt.get_board()))
-print(loop.run_until_complete(dgt.get_serial_nr()))
+print("Version:", loop.run_until_complete(dgt.get_version()))
+print("Serial:", loop.run_until_complete(dgt.get_serialnr()))
+print("Board:", loop.run_until_complete(dgt.get_board()))
 
 try:
     loop.run_forever()

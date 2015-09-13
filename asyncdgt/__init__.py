@@ -140,7 +140,6 @@ class Connection(pyee.EventEmitter):
         self.loop.add_reader(self.serial, self.can_read)
 
         # Request initial board state and updates.
-        self.serial.write(bytearray([DGT_SEND_VERSION]))
         self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
         self.serial.write(bytearray([DGT_SEND_BRD]))
 
@@ -209,6 +208,8 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_version(self):
+        self.version_received.clear()
+        self.serial.write(bytearray([DGT_SEND_VERSION]))
         yield from self.version_received.wait()
         return self.version
 
