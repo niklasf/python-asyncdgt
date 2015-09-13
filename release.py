@@ -115,6 +115,5 @@ if __name__ == "__main__":
     test()
     tagname = tag_and_push()
     pypi()
-    tagname = "v0.0.1"
     pythonhosted(tagname)
     github_release(tagname)
