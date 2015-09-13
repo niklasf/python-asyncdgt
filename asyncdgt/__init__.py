@@ -301,7 +301,7 @@ def auto_connect(port_globs, loop):
 
     def on_disconnected():
         if not dgt.closed:
-            loop.create_task(reconnect())
+            _ = loop.create_task(reconnect())
 
     dgt.on("disconnected", on_disconnected)
 
