@@ -3,6 +3,9 @@
 import asyncio
 import serial
 import sys
+import pyee
+import glob
+import logging
 
 #import chess
 
@@ -31,8 +34,7 @@ PIECE_TO_CHAR = {
 
 class Board(object):
 
-    def __init__(self, connection):
-        self.connection = connection
+    def __init__(self):
         self.state = bytearray(0x00 for _ in range(64))
 
     def process_message(self, message_id, message):
@@ -44,9 +46,9 @@ class Board(object):
 
 
 
-        print(self.fen())
+        print(self.board_fen())
 
-    def fen(self):
+    def board_fen(self):
         fen = []
         empty = 0
 
@@ -69,40 +71,43 @@ class Board(object):
 
 class Connection(object):
 
-    def __init__(self, ports, loop):
-        self.ports = ports
+    def __init__(self, port_globs, loop):
+        self.port_globs = list(port_globs)
         self.loop = loop
-        self.board = Board(self)
-
-        self.reconnect = asyncio.Event()
 
         self.serial = None
+        self.close()
 
-        self.message_id = 0
-        self.message_buffer = b""
-        self.remaining_message_length = 0
+    def port_candidates(self):
+        for port_glob in self.port_globs:
+            yield from glob.iglob(port_glob)
 
-        self.serial = serial.Serial(ports,
-            stopbits=serial.STOPBITS_ONE,
-            parity=serial.PARITY_NONE,
-            bytesize=serial.EIGHTBITS)
+    def connect(self):
+        for port in self.port_candidates():
+            self.connect_port(port)
 
-        self.connected()
-
-    def connected(self):
-        loop.add_reader(self.serial, self.can_read)
-        self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
-        self.serial.write(bytearray([DGT_SEND_BRD]))
-
-    def disconnected(self):
+    def close(self):
         if self.serial is not None:
             self.loop.remove_reader(self.serial)
             self.serial.close()
 
         self.serial = None
+        self.board = Board()
         self.message_id = 0
         self.message_buffer = b""
         self.remaining_message_length = 0
+
+    def connect_port(self, port):
+        self.close()
+
+        self.serial = serial.Serial(port,
+            stopbits=serial.STOPBITS_ONE,
+            parity=serial.PARITY_NONE,
+            bytesize=serial.EIGHTBITS)
+
+        self.loop.add_reader(self.serial, self.can_read)
+        self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
+        self.serial.write(bytearray([DGT_SEND_BRD]))
 
     def can_read(self):
         try:
@@ -115,7 +120,7 @@ class Connection(object):
             self.remaining_message_length -= len(message)
             self.message_buffer += message
         except (TypeError, serial.SerialException):
-            self.disconnected()
+            self.close()
         else:
             if not self.remaining_message_length:
                 self.board.process_message(self.message_id, self.message_buffer)
@@ -125,8 +130,12 @@ class Connection(object):
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
 
-    dgt = Connection("/dev/ttyACM0", loop)
+    dgt = Connection(["/dev/ttyACM*"], loop)
+    dgt.connect()
 
-    loop.run_forever()
-
-    loop.close()
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.close()
