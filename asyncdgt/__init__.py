@@ -120,7 +120,8 @@ class Connection(pyee.EventEmitter):
         self.battery_status_received = asyncio.Event(loop=loop)
         self.board_received = asyncio.Event(loop=loop)
 
-        self.close()
+        self.closed = False
+        self.disconnect()
 
     def port_candidates(self):
         for port_glob in self.port_globs:
@@ -128,11 +129,18 @@ class Connection(pyee.EventEmitter):
 
     def connect(self):
         for port in self.port_candidates():
-            self.connect_port(port)
-            break
+            try:
+                self.connect_port(port)
+            except serial.SerialException:
+                LOGGER.exception("Could not connect to port %s", port)
+            else:
+                return port
+
+        return False
 
     def connect_port(self, port):
-        self.close()
+        self.closed = False
+        self.disconnect()
 
         self.serial = serial.Serial(port,
             stopbits=serial.STOPBITS_ONE,
@@ -151,6 +159,10 @@ class Connection(pyee.EventEmitter):
         self.clock_beep()
 
     def close(self):
+        self.closed = True
+        self.disconnect()
+
+    def disconnect(self):
         was_connected = self.serial is not None
 
         if was_connected:
@@ -193,7 +205,7 @@ class Connection(pyee.EventEmitter):
             self.remaining_message_length -= len(message)
             self.message_buffer += message
         except (TypeError, serial.SerialException):
-            self.close()
+            self.disconnect()
         else:
             # Full message received.
             if not self.remaining_message_length:
@@ -262,7 +274,37 @@ class Connection(pyee.EventEmitter):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
         pass
 
+
 def connect(port_globs, loop):
     dgt = Connection(port_globs, loop)
-    dgt.connect()
+
+    if not dgt.connect():
+        raise IOError("dgt not connected")
+
+    return dgt
+
+
+def auto_connect(port_globs, loop):
+    dgt = Connection(port_globs, loop)
+
+    @asyncio.coroutine
+    def reconnect():
+        backoff = 0.5
+        connected = False
+
+        while not connected and not dgt.closed:
+            print("Trying to connect")
+            connected = dgt.connect()
+
+            yield from asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 10)
+
+    def on_disconnected():
+        if not dgt.closed:
+            loop.create_task(reconnect())
+
+    dgt.on("disconnected", on_disconnected)
+
+    on_disconnected()
+
     return dgt
