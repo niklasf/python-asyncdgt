@@ -282,14 +282,18 @@ class Connection(pyee.EventEmitter):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
         pass
 
+    def __enter__(self):
+        if self.connect()
+            return self
+        else:
+            raise IOError("dgt board not connected")
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.close()
+
 
 def connect(port_globs, loop):
-    dgt = Connection(port_globs, loop)
-
-    if not dgt.connect():
-        raise IOError("dgt not connected")
-
-    return dgt
+    return Connection(port_globs, loop).__enter__()
 
 
 def auto_connect(port_globs, loop):
