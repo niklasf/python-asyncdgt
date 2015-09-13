@@ -31,7 +31,6 @@ import logging
 import pyee
 import copy
 import sys
-import codecs
 
 
 DGT_SEND_RESET = 0x40
@@ -298,7 +297,7 @@ class Connection(pyee.EventEmitter):
                 self.message_buffer = b""
 
     def process_message(self, message_id, message):
-        LOGGER.debug("Message %s: %s", hex(message_id), codecs.encode(message, "hex"))
+        LOGGER.debug("Message %s: %s", hex(message_id), " ".join(format(c, "02x") for c in message))
 
         if message_id == MESSAGE_BIT | DGT_BOARD_DUMP:
             self.board.state = bytearray(message)
