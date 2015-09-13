@@ -64,7 +64,7 @@ def main(port_globs):
 
     @dgt.on("board")
     def on_board(board):
-        print("Board:")
+        print("Position changed:")
         print(board)
         print()
 

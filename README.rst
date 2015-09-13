@@ -87,10 +87,11 @@ Related projects
 ----------------
 
 * `python-chess <https://github.com/niklasf/python-chess>`_,
-  a general purpose chess library
+  a general purpose chess library.
 
 * `picochess <http://www.picochess.org/>`_,
-  a standalone chess computer for DGT boards
+  a standalone chess computer for DGT boards. Some of the DGT protocol handling
+  has been shamelessly extracted from their code.
 
 License
 -------
