@@ -2,6 +2,9 @@
 
 import asyncio
 import serial
+import sys
+
+#import chess
 
 DGT_SEND_BRD = 0x42
 
@@ -24,7 +27,6 @@ PIECE_TO_CHAR = {
     0x0a: "b",
     0x0b: "k",
     0x0c: "q",
-    0x00: "."
 }
 
 class Board(object):
@@ -34,10 +36,13 @@ class Board(object):
         self.state = bytearray(0x00 for _ in range(64))
 
     def process_message(self, message_id, message):
+        print(hex(message_id), message)
         if message_id == DGT_BOARD_DUMP:
             self.state = bytearray(message)
         elif message_id == DGT_MSG_FIELD_UPDATE:
             self.state[message[0]] = message[1]
+
+
 
         print(self.fen())
 
@@ -64,34 +69,58 @@ class Board(object):
 
 class Connection(object):
 
-    def __init__(self, port, loop):
+    def __init__(self, ports, loop):
+        self.ports = ports
         self.loop = loop
         self.board = Board(self)
 
-        self.serial = serial.Serial(port,
+        self.reconnect = asyncio.Event()
+
+        self.serial = None
+
+        self.message_id = 0
+        self.message_buffer = b""
+        self.remaining_message_length = 0
+
+        self.serial = serial.Serial(ports,
             stopbits=serial.STOPBITS_ONE,
             parity=serial.PARITY_NONE,
             bytesize=serial.EIGHTBITS)
 
-        loop.add_reader(self.serial, self.can_read)
+        self.connected()
 
+    def connected(self):
+        loop.add_reader(self.serial, self.can_read)
         self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
         self.serial.write(bytearray([DGT_SEND_BRD]))
 
+    def disconnected(self):
+        if self.serial is not None:
+            self.loop.remove_reader(self.serial)
+            self.serial.close()
+
+        self.serial = None
+        self.message_id = 0
+        self.message_buffer = b""
+        self.remaining_message_length = 0
+
     def can_read(self):
-        header = self.serial.read(3)
-        message_id = header[0]
-        message_length = (header[1] << 7) + header[2] - 3
-        message = self.serial.read(message_length)
+        try:
+            if not self.remaining_message_length:
+                header = self.serial.read(3) # TODO Ensure this read
+                self.message_id = header[0]
+                self.remaining_message_length = (header[1] << 7) + header[2] - 3
 
-        self.board.process_message(message_id, message)
-
-        if message_id == DGT_BOARD_DUMP:
-            self.process_board_dump(message)
-        elif message_id == DGT_MSG_FIELD_UPDATE:
-            print(message)
+            message = self.serial.read(self.remaining_message_length)
+            self.remaining_message_length -= len(message)
+            self.message_buffer += message
+        except (TypeError, serial.SerialException):
+            self.disconnected()
         else:
-            print(hex(message_id), message)
+            if not self.remaining_message_length:
+                self.board.process_message(self.message_id, self.message_buffer)
+                self.message_buffer = b""
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
