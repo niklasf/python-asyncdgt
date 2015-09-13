@@ -159,7 +159,22 @@ class Board(object):
         return copy.deepcopy(self)
 
     def __str__(self):
-        return self.board_fen()
+        builder = []
+
+        for square_index in range(0, 64):
+            if self.state[square_index]:
+                builder.append(PIECE_TO_CHAR[self.state[square_index]])
+            else:
+                builder.append(".")
+
+            if square_index == 63:
+                pass
+            elif square_index % 8 == 7:
+                builder.append("\n")
+            else:
+                builder.append(" ")
+
+        return "".join(builder)
 
     def __repr__(self):
         return "Board({0})".format(repr(self.board_fen()))

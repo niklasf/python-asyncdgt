@@ -64,7 +64,9 @@ def main(port_globs):
 
     @dgt.on("board")
     def on_board(board):
-        print("FEN: {0}".format(board.board_fen()))
+        print("Board:")
+        print(board)
+        print()
 
     # Get some information.
     print("Version:", loop.run_until_complete((dgt.get_version())))
