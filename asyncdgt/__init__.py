@@ -11,6 +11,7 @@ import copy
 import sys
 import codecs
 
+
 DGT_SEND_RESET = 0x40
 DGT_SEND_BRD = 0x42
 DGT_SEND_UPDATE_BRD = 0x44
@@ -96,12 +97,9 @@ class Connection(pyee.EventEmitter):
         self.port_globs = list(port_globs)
         self.loop = loop
 
-        # Connection state.
         self.serial = None
         self.board = Board()
-        self.message_id = 0
-        self.message_buffer = b""
-        self.remaining_message_length = 0
+        self.close()
 
     def port_candidates(self):
         for port_glob in self.port_globs:
@@ -132,13 +130,11 @@ class Connection(pyee.EventEmitter):
         self.clock_beep()
 
     def close(self):
-        if self.serial is None:
-            return
+        was_connected = self.serial is not None
 
-        self.loop.remove_reader(self.serial)
-        self.serial.close()
-
-        LOGGER.info("Disconnected")
+        if was_connected:
+            self.loop.remove_reader(self.serial)
+            self.serial.close()
 
         self.serial = None
         self.board.clear()
@@ -146,7 +142,9 @@ class Connection(pyee.EventEmitter):
         self.message_buffer = b""
         self.remaining_message_length = 0
 
-        self.emit("disconnected")
+        if was_connected:
+            LOGGER.info("Disconnected")
+            self.emit("disconnected")
 
     def can_read(self):
         try:
