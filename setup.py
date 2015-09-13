@@ -39,7 +39,7 @@ setuptools.setup(
     version=asyncdgt.__version__,
     author=asyncdgt.__author__,
     author_email=asyncdgt.__email__,
-    description="Communicate asynchronously with DGT boards",
+    description=asyncdgt.__doc__.strip().rstrip("."),
     long_description=read_description(),
     license="GPL3",
     keywords="chess dgt",

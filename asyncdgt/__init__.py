@@ -15,6 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Communicate asynchronously with DGT boards.
+"""
+
 __author__ = "Niklas Fiekas"
 
 __email__ = "niklas.fiekas@tu-clausthal.de"
@@ -82,6 +86,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Board(object):
+    """
+    A position on the board.
+
+    >>> board = asyncdgt.Board("rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR")
+    >>> print(board)
+    r n b k q b n r
+    p p p p p p p p
+    . . . . . . . .
+    . . . . . . . .
+    . . . P . . . .
+    . . . . . . . .
+    P P P . P P P .
+    R N B Q K B N R
+    """
 
     def __init__(self, board_fen=None):
         self.state = bytearray(0x00 for _ in range(64))
@@ -89,6 +107,13 @@ class Board(object):
             self.set_board_fen(board_fen)
 
     def board_fen(self):
+        """
+        Gets the FEN of the position.
+
+        >>> board = asyncdgt.Board()
+        >>> board.board_fen()
+        '8/8/8/8/8/8/8/8'
+        """
         fen = []
         empty = 0
 
@@ -109,6 +134,7 @@ class Board(object):
         return "".join(fen)
 
     def set_board_fen(self, fen):
+        """Set a FEN."""
         # Ensure there are enough rows.
         rows = fen.split("/")
         if len(rows) != 8:
@@ -152,9 +178,11 @@ class Board(object):
                 square_index += 1
 
     def clear(self):
+        """Clear the board."""
         self.state = bytearray(0x00 for _ in range(64))
 
     def copy(self):
+        """Get a copy of the board."""
         return copy.deepcopy(self)
 
     def __str__(self):
@@ -180,6 +208,14 @@ class Board(object):
 
 
 class Connection(pyee.EventEmitter):
+    """
+    Manages a DGT board connection.
+
+    *port_globs* is a list of glob expressions like ``["/dev/ttyACM*"]``. When
+    connecting the first successful match will be used.
+
+    *loop* is the :module:`asyncio` event loop.
+    """
 
     def __init__(self, port_globs, loop):
         super().__init__()
@@ -205,6 +241,7 @@ class Connection(pyee.EventEmitter):
             yield from glob.iglob(port_glob)
 
     def connect(self):
+        """Try to connect. Returns the connected port or ``False``."""
         for port in self.port_candidates():
             try:
                 self.connect_port(port)
@@ -244,6 +281,7 @@ class Connection(pyee.EventEmitter):
         self.connected.set()
 
     def close(self):
+        """Close any open board connection."""
         self.closed = True
         self.disconnect()
 
@@ -324,6 +362,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_version(self):
+        """Get the board version."""
         self.version_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_VERSION]))
@@ -332,6 +371,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_board(self):
+        """Get the current board position as a :cls:`asyncdgt.Board`."""
         self.board_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_BRD]))
@@ -340,6 +380,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_serialnr(self):
+        """Get the board serial number."""
         self.serialnr_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_RETURN_SERIALNR]))
@@ -348,6 +389,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_long_serialnr(self):
+        """Get the long variant of the board serial number."""
         self.long_serialnr_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_RETURN_LONG_SERIALNR]))
@@ -377,10 +419,24 @@ class Connection(pyee.EventEmitter):
 
 
 def connect(port_globs, loop):
+    """
+    Creates a DGT board connection.
+
+    Raises :exc:`IOError` when no board can be connected.
+    """
     return Connection(port_globs, loop).__enter__()
 
 
-def auto_connect(port_globs, loop):
+def auto_connect(port_globs, loop, max_backoff=10.0):
+    """
+    Creates a DGT bord connection.
+
+    If no board is available or the board gets disconnected, reconnection
+    attempts will be made with exponential backoff.
+
+    *max_backoff* is the maximum expontential backoff time in seconds. The
+    exponential backoff will not be increased beyond this.
+    """
     dgt = Connection(port_globs, loop)
 
     @asyncio.coroutine
@@ -392,7 +448,7 @@ def auto_connect(port_globs, loop):
             connected = dgt.connect()
 
             yield from asyncio.sleep(backoff)
-            backoff = min(backoff * 2, 10)
+            backoff = min(backoff * 2, max_backoff)
 
     def on_disconnected():
         if not dgt.closed:
