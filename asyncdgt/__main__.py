@@ -30,6 +30,7 @@ def on_board(board):
 dgt.connect()
 print("Version:", loop.run_until_complete(dgt.get_version()))
 print("Serial:", loop.run_until_complete(dgt.get_serialnr()))
+print("Long serial:", loop.run_until_complete(dgt.get_long_serialnr()))
 print("Board:", loop.run_until_complete(dgt.get_board()))
 
 try:

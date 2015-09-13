@@ -17,6 +17,7 @@ DGT_SEND_BRD = 0x42
 DGT_SEND_UPDATE_BRD = 0x44
 DGT_SEND_UPDATE_NICE = 0x4b
 DGT_RETURN_SERIALNR = 0x45
+DGT_RETURN_LONG_SERIALNR = 0x55
 DGT_SEND_VERSION = 0x4D
 
 DGT_FONE = 0x00
@@ -26,6 +27,7 @@ DGT_FIELD_UPDATE = 0x0E
 DGT_EE_MOVES = 0x0F
 DGT_BUSADRES = 0x10
 DGT_SERIALNR = 0x11
+DGT_LONG_SERIALNR = 0x22
 DGT_TRADEMARK = 0x12
 DGT_VERSION = 0x13
 DGT_BOARD_DUMP_50B = 0x14
@@ -113,6 +115,7 @@ class Connection(pyee.EventEmitter):
 
         self.version_received = asyncio.Event(loop=loop)
         self.serialnr_received = asyncio.Event(loop=loop)
+        self.long_serialnr_received = asyncio.Event(loop=loop)
         self.board_received = asyncio.Event(loop=loop)
 
         self.close()
@@ -152,14 +155,17 @@ class Connection(pyee.EventEmitter):
             self.loop.remove_reader(self.serial)
             self.serial.close()
 
-        self.version = None
         self.version_received.clear()
+        self.version = None
 
-        self.serialnr = None
         self.serialnr_received.clear()
+        self.serialnr = None
 
-        self.board.clear()
+        self.long_serialnr_received.clear()
+        self.long_serialnr = None
+
         self.board_received.clear()
+        self.board.clear()
 
         self.message_id = 0
         self.message_buffer = b""
@@ -205,6 +211,9 @@ class Connection(pyee.EventEmitter):
         elif message_id == MESSAGE_BIT | DGT_SERIALNR:
             self.serialnr = "".join(chr(c) for c in message)
             self.serialnr_received.set()
+        elif message_id == MESSAGE_BIT | DGT_LONG_SERIALNR:
+            self.long_serialnr = "".join(chr(c) for c in message)
+            self.long_serialnr_received.set()
 
     @asyncio.coroutine
     def get_version(self):
@@ -226,6 +235,13 @@ class Connection(pyee.EventEmitter):
         self.serial.write(bytearray([DGT_RETURN_SERIALNR]))
         yield from self.serialnr_received.wait()
         return self.serialnr
+
+    @asyncio.coroutine
+    def get_long_serialnr(self):
+        self.long_serialnr_received.clear()
+        self.serial.write(bytearray([DGT_RETURN_LONG_SERIALNR]))
+        yield from self.long_serialnr_received.wait()
+        return self.long_serialnr
 
     def clock_beep(self, ms=100):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
