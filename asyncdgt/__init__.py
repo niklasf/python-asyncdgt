@@ -364,31 +364,31 @@ class Connection(pyee.EventEmitter):
 
     def _process_bwtime(self, message):
         if message[0] & 0x0f == 0x0A or message[3] == 0x0A:
-            print("Clock ack!")
             ack0 = (message[1] & 0x7f) | (message[3] << 3) & 0x80
             ack1 = (message[2] & 0x7f) | (message[3] << 2) & 0x80
             ack2 = (message[4] & 0x7f) | (message[0] << 3) & 0x80
             ack3 = (message[5] & 0x7f) | (message[0] << 2) & 0x80
             if ack0 != 0x10:
-                print("ACK ERROR!")
+                LOGGER.warning("Clock ACK error")
             else:
-                print("CLOCK ACK!")
+                LOGGER.info("Clock ACK")
 
             if ack1 == 0x88:
                 self.emit("button_pressed", int(chr(ack3)))
             elif ack1 == 0x09:
-                print("Clock is there")
+                main_version = ack2 >> 4
+                sub_version = ack2 & 0x0f
+                logging.info("Clock version {0}.{1}".format(main_version, sub_version))
         elif any(message[:6]):
-            print("Time received")
             r_hours = message[0] & 0x0f
             r_mins = (message[1] >> 4) * 10 + (message[1] & 0x0f)
             r_secs = (message[2] >> 4) * 10 + (message[2] & 0x0f)
             l_hours = message[3] & 0x0f
             l_mins = (message[4] >> 4) * 10 + (message[4] & 0x0f)
             l_secs = (message[5] >> 4) * 10 + (message[5] & 0x0f)
-            print(r_hours, r_mins, r_secs, ":", l_hours, l_mins, l_secs)
+            logging.info("Clock time: %d:%02d:%02d %d:%02d:%02d", l_hours, l_mins, l_secs, r_hours, r_mins, r_secs)
         else:
-            print("Other clock message")
+            logging.warning("Unknown clock message")
 
     @asyncio.coroutine
     def get_version(self):
