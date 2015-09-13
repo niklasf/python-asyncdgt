@@ -359,6 +359,9 @@ class Connection(pyee.EventEmitter):
         elif message_id == MESSAGE_BIT | DGT_BATTERY_STATUS:
             self.battery_status = "".join(chr(c) for c in message if c)
             self.battery_status_received.set()
+        elif message_id == MESSAGE_BIT | DGT_BWTIME:
+            # TODO: Handle this.
+            pass
 
     @asyncio.coroutine
     def get_version(self):
