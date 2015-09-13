@@ -230,3 +230,9 @@ class Connection(pyee.EventEmitter):
     def clock_beep(self, ms=100):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
         pass
+
+
+def connect(port_globs, loop):
+    dgt = Connection(port_globs, loop)
+    dgt.connect()
+    return dgt
