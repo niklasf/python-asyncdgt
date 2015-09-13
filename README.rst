@@ -3,6 +3,7 @@ asyncdgt: Communicate asynchronously with DGT boards
 
 asyncdgt uses asyncio to communicate asynchronously with a DGT electronic
 chess board.
+`View reference documentation <http://pythonhosted.org/asyncdgt/#reference-documentation>`_.
 
 .. image:: https://badge.fury.io/py/asyncdgt.svg
     :target: https://pypi.python.org/pypi/asyncdgt
