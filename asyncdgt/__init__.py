@@ -98,7 +98,7 @@ class Connection(pyee.EventEmitter):
             parity=serial.PARITY_NONE,
             bytesize=serial.EIGHTBITS)
 
-        self.emit("connected", port)
+        self.emit("connected", self, port)
 
         self.loop.add_reader(self.serial, self.can_read)
 
@@ -119,7 +119,7 @@ class Connection(pyee.EventEmitter):
         self.message_buffer = b""
         self.remaining_message_length = 0
 
-        self.emit("disconnected")
+        self.emit("disconnected", self)
 
     def can_read(self):
         try:
@@ -146,22 +146,7 @@ class Connection(pyee.EventEmitter):
 
         if message_id == DGT_BOARD_DUMP:
             self.board.state = bytearray(message)
-            self.emit("board", self.board.copy())
+            self.emit("board", self, self.board.copy())
         elif message_id == DGT_MSG_FIELD_UPDATE:
             self.board.state[message[0]] = message[1]
-            self.emit("board", self.board.copy())
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-
-    loop = asyncio.get_event_loop()
-
-    dgt = Connection(sys.argv[1:], loop)
-    dgt.connect()
-
-    try:
-        loop.run_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        loop.close()
+            self.emit("board", self, self.board.copy())
