@@ -66,10 +66,12 @@ Hardware
 --------
 
 Tested with the following boards:
+
 * DGT e-Board 3.1
 * DGT e-Board 3.1 Bluetooth
 
 Clocks:
+
 * DGT Clock 3000
 
 Dependencies
