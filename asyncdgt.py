@@ -6,8 +6,9 @@ import sys
 import pyee
 import glob
 import logging
-
-#import chess
+import pyee
+import copy
+import sys
 
 DGT_SEND_BRD = 0x42
 
@@ -32,21 +33,11 @@ PIECE_TO_CHAR = {
     0x0c: "q",
 }
 
+
 class Board(object):
 
     def __init__(self):
         self.state = bytearray(0x00 for _ in range(64))
-
-    def process_message(self, message_id, message):
-        print(hex(message_id), message)
-        if message_id == DGT_BOARD_DUMP:
-            self.state = bytearray(message)
-        elif message_id == DGT_MSG_FIELD_UPDATE:
-            self.state[message[0]] = message[1]
-
-
-
-        print(self.board_fen())
 
     def board_fen(self):
         fen = []
@@ -68,15 +59,27 @@ class Board(object):
 
         return "".join(fen)
 
+    def clear(self):
+        self.state = bytearray(0x00 for _ in range(64))
 
-class Connection(object):
+    def copy(self):
+        return copy.deepcopy(self)
+
+
+class Connection(pyee.EventEmitter):
 
     def __init__(self, port_globs, loop):
+        super().__init__()
+
         self.port_globs = list(port_globs)
         self.loop = loop
 
+        # Connection state.
         self.serial = None
-        self.close()
+        self.board = Board()
+        self.message_id = 0
+        self.message_buffer = b""
+        self.remaining_message_length = 0
 
     def port_candidates(self):
         for port_glob in self.port_globs:
@@ -85,17 +88,7 @@ class Connection(object):
     def connect(self):
         for port in self.port_candidates():
             self.connect_port(port)
-
-    def close(self):
-        if self.serial is not None:
-            self.loop.remove_reader(self.serial)
-            self.serial.close()
-
-        self.serial = None
-        self.board = Board()
-        self.message_id = 0
-        self.message_buffer = b""
-        self.remaining_message_length = 0
+            break
 
     def connect_port(self, port):
         self.close()
@@ -105,32 +98,65 @@ class Connection(object):
             parity=serial.PARITY_NONE,
             bytesize=serial.EIGHTBITS)
 
+        self.emit("connected", port)
+
         self.loop.add_reader(self.serial, self.can_read)
+
+        # Request initial board state and updates.
         self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
         self.serial.write(bytearray([DGT_SEND_BRD]))
+
+    def close(self):
+        if self.serial is None:
+            return
+
+        self.loop.remove_reader(self.serial)
+        self.serial.close()
+
+        self.serial = None
+        self.board.clear()
+        self.message_id = 0
+        self.message_buffer = b""
+        self.remaining_message_length = 0
+
+        self.emit("disconnected")
 
     def can_read(self):
         try:
             if not self.remaining_message_length:
-                header = self.serial.read(3) # TODO Ensure this read
+                # Start of a new message.
+                header = self.serial.read(3)
                 self.message_id = header[0]
                 self.remaining_message_length = (header[1] << 7) + header[2] - 3
 
+            # Read remaining part of the current message.
             message = self.serial.read(self.remaining_message_length)
             self.remaining_message_length -= len(message)
             self.message_buffer += message
         except (TypeError, serial.SerialException):
             self.close()
         else:
+            # Full message received.
             if not self.remaining_message_length:
-                self.board.process_message(self.message_id, self.message_buffer)
+                self.process_message(self.message_id, self.message_buffer)
                 self.message_buffer = b""
 
+    def process_message(self, message_id, message):
+        logging.debug("%s: %s", hex(message_id), message)
+
+        if message_id == DGT_BOARD_DUMP:
+            self.board.state = bytearray(message)
+            self.emit("board", self.board.copy())
+        elif message_id == DGT_MSG_FIELD_UPDATE:
+            self.board.state[message[0]] = message[1]
+            self.emit("board", self.board.copy())
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+
     loop = asyncio.get_event_loop()
 
-    dgt = Connection(["/dev/ttyACM*"], loop)
+    dgt = Connection(sys.argv[1:], loop)
     dgt.connect()
 
     try:
