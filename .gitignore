@@ -4,3 +4,4 @@ docs/_build
 asyncdgt.egg-info
 asyncdgt/__pycache__
 pythonhosted.zip
+release-*.txt
