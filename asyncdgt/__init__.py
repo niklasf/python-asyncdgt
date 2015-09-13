@@ -9,6 +9,7 @@ import logging
 import pyee
 import copy
 import sys
+import codecs
 
 DGT_SEND_BRD = 0x42
 
@@ -32,6 +33,8 @@ PIECE_TO_CHAR = {
     0x0b: "k",
     0x0c: "q",
 }
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Board(object):
@@ -98,7 +101,8 @@ class Connection(pyee.EventEmitter):
             parity=serial.PARITY_NONE,
             bytesize=serial.EIGHTBITS)
 
-        self.emit("connected", self, port)
+        LOGGER.info("Connected to %s", port)
+        self.emit("connected", port)
 
         self.loop.add_reader(self.serial, self.can_read)
 
@@ -113,13 +117,15 @@ class Connection(pyee.EventEmitter):
         self.loop.remove_reader(self.serial)
         self.serial.close()
 
+        LOGGER.info("Disconnected")
+
         self.serial = None
         self.board.clear()
         self.message_id = 0
         self.message_buffer = b""
         self.remaining_message_length = 0
 
-        self.emit("disconnected", self)
+        self.emit("disconnected")
 
     def can_read(self):
         try:
@@ -142,11 +148,11 @@ class Connection(pyee.EventEmitter):
                 self.message_buffer = b""
 
     def process_message(self, message_id, message):
-        logging.debug("%s: %s", hex(message_id), message)
+        LOGGER.debug("Message %s: %s", hex(message_id), codecs.encode(message, "hex"))
 
         if message_id == DGT_BOARD_DUMP:
             self.board.state = bytearray(message)
-            self.emit("board", self, self.board.copy())
+            self.emit("board", self.board.copy())
         elif message_id == DGT_MSG_FIELD_UPDATE:
             self.board.state[message[0]] = message[1]
-            self.emit("board", self, self.board.copy())
+            self.emit("board", self.board.copy())

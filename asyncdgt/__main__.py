@@ -16,15 +16,15 @@ loop = asyncio.get_event_loop()
 dgt = asyncdgt.Connection(sys.argv[1:], loop)
 
 @dgt.on("connected")
-def on_connect(dgt, port):
+def on_connected(port):
     print("Connected to {0}!".format(port))
 
 @dgt.on("disconnected")
-def on_disconnect(dgt):
-    print("Disconnected!".format(port))
+def on_disconnected():
+    print("Disconnected!")
 
 @dgt.on("board")
-def on_board(dgt, board):
+def on_board(board):
     print("FEN: {0}".format(board.board_fen()))
 
 dgt.connect()
