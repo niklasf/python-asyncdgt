@@ -97,6 +97,8 @@ class Connection(pyee.EventEmitter):
         self.port_globs = list(port_globs)
         self.loop = loop
 
+        self.version_received = asyncio.Event(loop=loop)
+
         self.serial = None
         self.board = Board()
         self.close()
@@ -124,6 +126,7 @@ class Connection(pyee.EventEmitter):
         self.loop.add_reader(self.serial, self.can_read)
 
         # Request initial board state and updates.
+        self.serial.write(bytearray([DGT_SEND_VERSION]))
         self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
         self.serial.write(bytearray([DGT_SEND_BRD]))
 
@@ -136,8 +139,11 @@ class Connection(pyee.EventEmitter):
             self.loop.remove_reader(self.serial)
             self.serial.close()
 
+        self.version = None
+        self.version_received.clear()
+
         self.serial = None
-        self.board.clear()
+        self.version = None
         self.message_id = 0
         self.message_buffer = b""
         self.remaining_message_length = 0
@@ -175,6 +181,14 @@ class Connection(pyee.EventEmitter):
         elif message_id == MESSAGE_BIT | DGT_FIELD_UPDATE:
             self.board.state[message[0]] = message[1]
             self.emit("board", self.board.copy())
+        elif message_id == MESSAGE_BIT | DGT_VERSION:
+            self.version = "%d.%d" % (message[0], message[1])
+            self.version_received.set()
+
+    @asyncio.coroutine
+    def get_version(self):
+        yield from self.version_received.wait()
+        return self.version
 
     def clock_beep(self, ms=100):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
