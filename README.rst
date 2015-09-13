@@ -23,7 +23,7 @@ Create an event loop and a connection to the DGT board.
     loop = asyncio.get_event_loop()
     dgt = asyncdgt.auto_connect(["/dev/ttyACM*"], loop)
 
-Register some `pyee <https://github.com/jfhbrook/pyee>`_ event handlers. They
+Register some `pyee <https://github.com/jfhbrook/pyee>`__ event handlers. They
 will be called whenever a board gets connected, disconnected or the position
 changed.
 
@@ -82,7 +82,7 @@ Dependencies
 ------------
 
 * Python 3.4
-* `pyee <https://github.com/jfhbrook/pyee>`_
+* `pyee <https://github.com/jfhbrook/pyee>`__
 * `pyserial <http://pyserial.sourceforge.net/>`_
 
 ``pip install -r requirements.txt``
