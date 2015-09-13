@@ -11,13 +11,32 @@ import copy
 import sys
 import codecs
 
+DGT_SEND_RESET = 0x40
 DGT_SEND_BRD = 0x42
-
-DGT_BOARD_DUMP = 0x86
-
+DGT_SEND_UPDATE_BRD = 0x44
 DGT_SEND_UPDATE_NICE = 0x4b
+DGT_RETURN_SERIALNR = 0x45
+DGT_SEND_VERSION = 0x4D
 
-DGT_MSG_FIELD_UPDATE = 0x80 | 0x0e
+DGT_FONE = 0x00
+DGT_BOARD_DUMP = 0x06
+DGT_BWTIME = 0x0D
+DGT_FIELD_UPDATE = 0x0E
+DGT_EE_MOVES = 0x0F
+DGT_BUSADRES = 0x10
+DGT_SERIALNR = 0x11
+DGT_TRADEMARK = 0x12
+DGT_VERSION = 0x13
+DGT_BOARD_DUMP_50B = 0x14
+DGT_BOARD_DUMP_50W = 0x15
+DGT_BATTERY_STATUS = 0x20
+DGT_LONG_SERIALNR = 0x22
+
+MESSAGE_BIT = 0x80
+
+DGT_CLOCK_MESSAGE = 0x2b
+
+DGT_CMD_CLOCK_BEEP = 0x0b
 
 PIECE_TO_CHAR = {
     0x01: "P",
@@ -110,6 +129,8 @@ class Connection(pyee.EventEmitter):
         self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
         self.serial.write(bytearray([DGT_SEND_BRD]))
 
+        self.clock_beep()
+
     def close(self):
         if self.serial is None:
             return
@@ -150,9 +171,13 @@ class Connection(pyee.EventEmitter):
     def process_message(self, message_id, message):
         LOGGER.debug("Message %s: %s", hex(message_id), codecs.encode(message, "hex"))
 
-        if message_id == DGT_BOARD_DUMP:
+        if message_id == MESSAGE_BIT | DGT_BOARD_DUMP:
             self.board.state = bytearray(message)
             self.emit("board", self.board.copy())
-        elif message_id == DGT_MSG_FIELD_UPDATE:
+        elif message_id == MESSAGE_BIT | DGT_FIELD_UPDATE:
             self.board.state[message[0]] = message[1]
             self.emit("board", self.board.copy())
+
+    def clock_beep(self, ms=100):
+        #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
+        pass
