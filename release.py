@@ -37,8 +37,9 @@ def tag_and_push():
 
     if not os.path.exists(release_filename):
         print(">>> Creating {0} ...".format(release_filename))
-        headline = "asyncdgt {0}".format(tagname)
-        release_txt.write(headline + os.linesep)
+        with open(release_filename, "w") as release_txt:
+            headline = "asyncdgt {0}".format(tagname)
+            release_txt.write(headline + os.linesep)
 
     with open(release_filename, "r") as release_txt:
         release = release_txt.read().strip() + os.linesep
