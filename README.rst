@@ -40,7 +40,7 @@ Related projects
 * `python-chess <https://github.com/niklasf/python-chess>`_,
   a general purpose chess library
 
-* `picochess <http://www.picochess.org/>`_
+* `picochess <http://www.picochess.org/>`_,
   a standalone chess computer for DGT boards
 
 License
