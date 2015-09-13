@@ -59,8 +59,10 @@ LOGGER = logging.getLogger(__name__)
 
 class Board(object):
 
-    def __init__(self):
+    def __init__(self, board_fen=None):
         self.state = bytearray(0x00 for _ in range(64))
+        if board_fen:
+            self.set_board_fen(board_fen)
 
     def board_fen(self):
         fen = []
@@ -82,11 +84,20 @@ class Board(object):
 
         return "".join(fen)
 
+    def set_board_fen(self):
+        pass
+
     def clear(self):
         self.state = bytearray(0x00 for _ in range(64))
 
     def copy(self):
         return copy.deepcopy(self)
+
+    def __str__(self):
+        return self.board_fen()
+
+    def __repr__(self):
+        return "Board({0})".format(repr(self.board_fen()))
 
 
 class Connection(pyee.EventEmitter):
@@ -97,10 +108,12 @@ class Connection(pyee.EventEmitter):
         self.port_globs = list(port_globs)
         self.loop = loop
 
-        self.version_received = asyncio.Event(loop=loop)
-
         self.serial = None
         self.board = Board()
+
+        self.version_received = asyncio.Event(loop=loop)
+        self.board_received = asyncio.Event(loop=loop)
+
         self.close()
 
     def port_candidates(self):
@@ -142,8 +155,9 @@ class Connection(pyee.EventEmitter):
         self.version = None
         self.version_received.clear()
 
-        self.serial = None
-        self.version = None
+        self.board.clear()
+        self.board_received.clear()
+
         self.message_id = 0
         self.message_buffer = b""
         self.remaining_message_length = 0
@@ -177,6 +191,7 @@ class Connection(pyee.EventEmitter):
 
         if message_id == MESSAGE_BIT | DGT_BOARD_DUMP:
             self.board.state = bytearray(message)
+            self.board_received.set()
             self.emit("board", self.board.copy())
         elif message_id == MESSAGE_BIT | DGT_FIELD_UPDATE:
             self.board.state[message[0]] = message[1]
@@ -189,6 +204,13 @@ class Connection(pyee.EventEmitter):
     def get_version(self):
         yield from self.version_received.wait()
         return self.version
+
+    @asyncio.coroutine
+    def get_board(self):
+        self.board_received.clear()
+        self.serial.write(bytearray([DGT_SEND_BRD]))
+        yield from self.board_received.wait()
+        return self.board.copy()
 
     def clock_beep(self, ms=100):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
