@@ -16,28 +16,35 @@ See ``asyncdgt/__main__.py`` for an example. Run with
 Hardware
 --------
 
-TODO: Tested with ...
+Tested with the following boards:
+
+* DGT e-Board 3.1
+* DGT e-Board 3.1 Bluetooth
+
+Clocks:
+
+* DGT Clock 3000
 
 Dependencies
 ------------
 
 * Python 3.4
-* [pyee](https://github.com/jfhbrook/pyee)
-* [pyserial](http://pyserial.sourceforge.net/)
+* `pyee <https://github.com/jfhbrook/pyee>`_
+* `pyserial <http://pyserial.sourceforge.net/>`_
 
 ``pip install -r requirements.txt``
 
 Related projects
 ----------------
 
-* [python-chess](https://github.com/niklasf/python-chess),
+* `python-chess <https://github.com/niklasf/python-chess>`_,
   a general purpose chess library
 
-* [picochess](http://www.picochess.org/),
+* `picochess <http://www.picochess.org/>`_
   a standalone chess computer for DGT boards
 
 License
 -------
 
-python-asyncdtg is licensed under the GPL3. See the LICENSE.txt file for the
-full copyright and license information.
+python-asyncdtg is licensed under the GPL3. See the ``LICENSE.txt`` file for
+the full license text.
