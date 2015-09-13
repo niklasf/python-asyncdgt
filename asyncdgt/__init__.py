@@ -18,6 +18,7 @@ DGT_SEND_UPDATE_BRD = 0x44
 DGT_SEND_UPDATE_NICE = 0x4b
 DGT_RETURN_SERIALNR = 0x45
 DGT_RETURN_LONG_SERIALNR = 0x55
+DGT_SEND_BATTERY_STATUS = 0x4C
 DGT_SEND_VERSION = 0x4D
 
 DGT_FONE = 0x00
@@ -116,6 +117,7 @@ class Connection(pyee.EventEmitter):
         self.version_received = asyncio.Event(loop=loop)
         self.serialnr_received = asyncio.Event(loop=loop)
         self.long_serialnr_received = asyncio.Event(loop=loop)
+        self.battery_status_received = asyncio.Event(loop=loop)
         self.board_received = asyncio.Event(loop=loop)
 
         self.close()
@@ -163,6 +165,9 @@ class Connection(pyee.EventEmitter):
 
         self.long_serialnr_received.clear()
         self.long_serialnr = None
+
+        self.battery_status_received.clear()
+        self.battery_status = None
 
         self.board_received.clear()
         self.board.clear()
@@ -214,6 +219,9 @@ class Connection(pyee.EventEmitter):
         elif message_id == MESSAGE_BIT | DGT_LONG_SERIALNR:
             self.long_serialnr = "".join(chr(c) for c in message)
             self.long_serialnr_received.set()
+        elif message_id == MESSAGE_BIT | DGT_BATTERY_STATUS:
+            self.battery_status = "".join(chr(c) for c in message if c)
+            self.battery_status_received.set()
 
     @asyncio.coroutine
     def get_version(self):
@@ -243,10 +251,16 @@ class Connection(pyee.EventEmitter):
         yield from self.long_serialnr_received.wait()
         return self.long_serialnr
 
+    @asyncio.coroutine
+    def get_battery_status(self):
+        self.battery_status_received.clear()
+        self.serial.write(bytearray([DGT_SEND_BATTERY_STATUS]))
+        yield from self.battery_status_received.wait()
+        return self.battery_status
+
     def clock_beep(self, ms=100):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
         pass
-
 
 def connect(port_globs, loop):
     dgt = Connection(port_globs, loop)
