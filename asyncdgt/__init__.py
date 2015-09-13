@@ -378,7 +378,7 @@ class Connection(pyee.EventEmitter):
             elif ack1 == 0x09:
                 main_version = ack2 >> 4
                 sub_version = ack2 & 0x0f
-                logging.info("Clock version {0}.{1}".format(main_version, sub_version))
+                LOGGER.info("Clock version {0}.{1}".format(main_version, sub_version))
         elif any(message[:6]):
             r_hours = message[0] & 0x0f
             r_mins = (message[1] >> 4) * 10 + (message[1] & 0x0f)
@@ -386,9 +386,9 @@ class Connection(pyee.EventEmitter):
             l_hours = message[3] & 0x0f
             l_mins = (message[4] >> 4) * 10 + (message[4] & 0x0f)
             l_secs = (message[5] >> 4) * 10 + (message[5] & 0x0f)
-            logging.info("Clock time: %d:%02d:%02d %d:%02d:%02d", l_hours, l_mins, l_secs, r_hours, r_mins, r_secs)
+            LOGGER.info("Clock time: %d:%02d:%02d %d:%02d:%02d", l_hours, l_mins, l_secs, r_hours, r_mins, r_secs)
         else:
-            logging.warning("Unknown clock message")
+            LOGGER.warning("Unknown clock message")
 
     @asyncio.coroutine
     def get_version(self):
@@ -475,6 +475,7 @@ def auto_connect(port_globs, loop, max_backoff=10.0):
         connected = False
 
         while not connected and not dgt.closed:
+            LOGGER.debug("Trying to connect")
             connected = dgt.connect()
 
             yield from asyncio.sleep(backoff)
