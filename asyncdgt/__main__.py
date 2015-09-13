@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # This file is part of the python-asyncdgt library.
 # Copyright (C) 2015 Niklas Fiekas <niklas.fiekas@tu-clausthal.de>
 #
@@ -69,7 +70,7 @@ def main(port_globs):
     print("Version:", loop.run_until_complete((dgt.get_version())))
     print("Serial:", loop.run_until_complete(dgt.get_serialnr()))
     print("Long serial:", loop.run_until_complete(dgt.get_long_serialnr()))
-    print("Board:", loop.run_until_complete(dgt.get_board()))
+    print("Board:", loop.run_until_complete(dgt.get_board()).board_fen())
     print("Battery status:", loop.run_until_complete(dgt.get_battery_status()))
 
     # Run the event loop.
@@ -83,6 +84,9 @@ def main(port_globs):
         pending = asyncio.Task.all_tasks(loop)
         loop.run_until_complete(asyncio.gather(*pending))
         loop.close()
+
+    return 0
+
 
 if __name__ == "__main__":
     port_globs = sys.argv[1:]

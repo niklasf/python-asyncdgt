@@ -109,8 +109,48 @@ class Board(object):
 
         return "".join(fen)
 
-    def set_board_fen(self):
-        pass
+    def set_board_fen(self, fen):
+        # Ensure there are enough rows.
+        rows = fen.split("/")
+        if len(rows) != 8:
+            raise ValueError("expected 8 rows in the fen: {0}".format(repr(fen)))
+
+
+        # Validate each row.
+        for row in rows:
+            field_sum = 0
+            previous_was_digit = False
+
+            for c in row:
+                if c in ["1", "2", "3", "4", "5", "6", "7", "8"]:
+                    if previous_was_digit:
+                        raise ValueError("two subsequent digits in the fen: {0}".format(repr(fen)))
+                    field_sum += int(c)
+                    previous_was_digit = True
+                elif c in PIECE_TO_CHAR.values():
+                    field_sum += 1
+                    previous_was_digit = False
+                else:
+                    raise ValueError("invalid character in the fen: {0}".format(repr(fen)))
+
+            if field_sum != 8:
+                raise ValueError("expected 8 columns per row in fen: {0}".format(repr(fen)))
+
+        # Put the pieces on the board.
+        self.clear()
+        square_index = 0
+        for c in fen:
+            if c in ["1", "2", "3", "4", "5", "6", "7", "8"]:
+                square_index += int(c)
+            elif c != "/":
+                for piece_code, char in PIECE_TO_CHAR.items():
+                    if c == char:
+                        self.state[square_index] = piece_code
+                        break
+                else:
+                    assert False
+
+                square_index += 1
 
     def clear(self):
         self.state = bytearray(0x00 for _ in range(64))
