@@ -20,7 +20,10 @@ The asyncdgt library.
 Copyright (C) 2015 Niklas Fiekas <niklas.fiekas@tu-clausthal.de>
 
 Usage:
-  python -m asyncdgt <dgt-port>
+  python -m asyncdgt [--debug] <dgt-port>
+
+[--debug]
+  Enable debug logger.
 
 <dgt-port>
   The serial port with the DGT board.
@@ -34,7 +37,6 @@ import serial
 import serial.tools.list_ports
 
 
-logging.basicConfig(level=logging.DEBUG)
 
 
 def usage():
@@ -66,7 +68,6 @@ def main(port_globs):
     def on_board(board):
         print("Position changed:")
         print(board)
-        print()
 
     @dgt.on("button_pressed")
     def on_button_pressed(button):
@@ -74,7 +75,7 @@ def main(port_globs):
 
     @dgt.on("clock")
     def on_clock(clock):
-        print(clock)
+        print("Clock status changed:", clock)
 
     # Get some information.
     print("Version:", loop.run_until_complete(dgt.get_version()))
@@ -82,23 +83,23 @@ def main(port_globs):
     print("Long serial:", loop.run_until_complete(dgt.get_long_serialnr()))
     print("Board:", loop.run_until_complete(dgt.get_board()).board_fen())
 
+    # Get the clock version.
     try:
         print("Clock version:", loop.run_until_complete(asyncio.wait_for(dgt.get_clock_version(), 1.0)))
     except asyncio.TimeoutError:
-        print("Clock version not send in time.")
+        print("Clock version request timed out.")
 
+    # Display some text.
+    print("Displaying text ...")
+    quote = "Now, I am become death, the destroyer of worlds. Ready"
+    loop.run_until_complete(clock_display_sentence(dgt, quote))
+
+    # Let the clock beep
     try:
-        print("Beeping ...")
+        print("Beep ...")
         loop.run_until_complete(asyncio.wait_for(dgt.clock_beep(0.1), 1.0))
     except asyncio.TimeoutError:
         print("Beep not acknowledged in time.")
-
-    print("Displaying text ...")
-
-    quote = "This life, which" #  had been the tomb of his virtue and of his honour, is but a walking shadow; a poor player, that struts and frets his hour upon the stage, and then is heard no more: it is a tale told by an idiot, full of sound and fury."
-    loop.run_until_complete(display_sentence(dgt, quote))
-
-    print("Reached !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
     # Run the event loop.
     try:
@@ -115,16 +116,20 @@ def main(port_globs):
     return 0
 
 @asyncio.coroutine
-def display_sentence(dgt, sentence):
+def clock_display_sentence(dgt, sentence):
     for word in sentence.split():
-        yield from asyncio.sleep(0.1)
+        yield from asyncio.sleep(0.2)
+
         try:
             yield from asyncio.wait_for(dgt.clock_text(word), 0.5)
         except asyncio.TimeoutError:
-            print("Text not displayed in time.")
+            print("Sending clock text timed out.")
 
 if __name__ == "__main__":
-    port_globs = sys.argv[1:]
+    if "--debug" in sys.argv:
+        logging.basicConfig(level=logging.DEBUG)
+
+    port_globs = [arg for arg in sys.argv[1:] if arg != "--debug"]
     if not port_globs:
         sys.exit(usage())
     else:

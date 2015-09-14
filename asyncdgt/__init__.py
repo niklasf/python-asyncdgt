@@ -769,7 +769,7 @@ def _center_text(text, display_size):
     text = text.ljust((len(text) + display_size) // 2).rjust(display_size)
     bytestr = text.encode("ascii")
     if len(bytestr) > display_size:
-        LOGGER.warning("Text %s exceeds display size of %d", repr(text), display_size)
+        LOGGER.warning("Text %r exceeds display size of %d", text, display_size)
         return bytestr[0:8]
     else:
         return bytestr
@@ -802,7 +802,7 @@ def auto_connect(loop, port_globs, lock_port=False, max_backoff=10.0):
         connected = False
 
         while not dgt.closed:
-            LOGGER.debug("Trying to connect")
+            LOGGER.debug("Trying to connect ...")
             connected = dgt.connect()
             if connected:
                 break
@@ -812,7 +812,6 @@ def auto_connect(loop, port_globs, lock_port=False, max_backoff=10.0):
 
     def on_disconnected():
         if not dgt.closed:
-            LOGGER.debug("Reconnection attempts will be scheduled")
             _ = loop.create_task(reconnect())
 
     dgt.on("disconnected", on_disconnected)
