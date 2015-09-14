@@ -331,14 +331,23 @@ class Connection(pyee.EventEmitter):
 
     def can_read(self):
         try:
+            available_bytes = self.serial.inWaiting()
+            if not available_bytes:
+                LOGGER.warning("No bytes available")
+                return
+
             if not self.remaining_message_length:
+                # Check that at least 3 bytes are available.
+                if available_bytes < 3:
+                    LOGGER.warning("Very few bytes available")
+
                 # Start of a new message.
                 header = self.serial.read(3)
                 self.message_id = header[0]
                 self.remaining_message_length = (header[1] << 7) + header[2] - 3
 
             # Read remaining part of the current message.
-            message = self.serial.read(self.remaining_message_length)
+            message = self.serial.read(min(available_bytes, self.remaining_message_length))
             self.remaining_message_length -= len(message)
             self.message_buffer += message
         except (TypeError, serial.SerialException):
