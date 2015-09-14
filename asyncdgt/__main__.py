@@ -102,6 +102,7 @@ def main(port_globs):
         print("Beep not acknowledged in time.")
 
     # Run the event loop.
+    print("Running event loop ...")
     try:
         loop.run_forever()
     except KeyboardInterrupt:
