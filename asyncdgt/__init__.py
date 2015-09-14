@@ -230,10 +230,20 @@ class Board(object):
 
 
 class Clock(collections.namedtuple("Clock", ["left_time", "right_time", "left_up"])):
+    """
+    The status of the clock.
+
+    *left_time* is the remaining time for the left side in seconds.
+
+    *right_time* is the remaining time for the right side in seconds.
+
+    *left_up* is information about the status of the lever.
+    """
     pass
 
 
 class AsyncDriver(object):
+    """Provides fully asynchronous serial communication."""
 
     def __init__(self, connection):
         self.connection = connection
@@ -316,6 +326,7 @@ class AsyncDriver(object):
 
 
 class ThreadedDriver(object):
+    """Fallback. Provides threaded serial communication."""
 
     def __init__(self, connection):
         self.connection = connection
@@ -695,7 +706,18 @@ class Connection(pyee.EventEmitter):
             yield from self.clock_ack_received.wait()
 
     @asyncio.coroutine
-    def clock_text(self, text):
+    def clock_text(self, text_dgt_xl, text_dgt_3000=None):
+        """
+        Coroutine. Display ASCII text on the clock.
+
+        *text_dgt_xl* should consist of at most 6 ASCII characters.
+
+        An optional longer 8 character version of the string can be provided
+        for the DGT 3000 clock.
+        """
+        if text_dgt_3000 is None:
+            text_dgt_3000 = text_dgt_xl
+
         yield from self.connected.wait()
 
         if not self.clock_version:
@@ -704,7 +726,7 @@ class Connection(pyee.EventEmitter):
         with (yield from self.clock_lock):
             if self.clock_version.startswith("2."):
                 # DGT 3000.
-                t = _center_text(text, 8)
+                t = _center_text(text_dgt_3000, 8)
                 self.write(bytearray([
                     DGT_CLOCK_MESSAGE, 12,
                     DGT_CLOCK_START_MESSAGE,
@@ -715,7 +737,7 @@ class Connection(pyee.EventEmitter):
                 ]))
             else:
                 # DGT XL.
-                t = _center_text(text, 6)
+                t = _center_text(text_dgt_xl, 6)
                 self.write(bytearray([
                     DGT_CLOCK_MESSAGE, 11,
                     DGT_CLOCK_START_MESSAGE,
