@@ -505,7 +505,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def clock_text(self, text):
-        t = text.ljust(8).encode("ascii")
+        t = text.ljust(6).rjust(8).encode("ascii")
         if len(t) > 8:
             LOGGER.warning("Clock message to long for DGT 3000: %s", repr(text))
 
