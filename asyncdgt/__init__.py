@@ -40,6 +40,8 @@ import copy
 import sys
 import os
 import itertools
+import fcntl
+import termios
 
 
 DGT_SEND_RESET = 0x40
@@ -309,6 +311,14 @@ class Connection(pyee.EventEmitter):
         self.serial.close()
         self.serial.open()
 
+        # Lock serial port.
+        try:
+            fcntl.ioctl(self.serial.fd, termios.TIOCEXCL)
+        except OSError:
+            LOGGER.warning("Could not set TIOCEXCL on port", self.serial.fd)
+
+        print(self.serial.fd)
+
         LOGGER.info("Connected to %s", port)
         self.emit("connected", port)
 
@@ -330,6 +340,13 @@ class Connection(pyee.EventEmitter):
 
         if was_connected:
             self.loop.remove_reader(self.serial)
+
+            # Release serial port.
+            try:
+                fcntl.ioctl(self.serial.fd, termios.TIOCNXCL)
+            except OSError:
+                LOGGER.warning("Could set TIOCNXCL on port")
+
             self.serial.close()
 
         self.version_received.clear()
