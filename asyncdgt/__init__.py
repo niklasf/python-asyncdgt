@@ -305,7 +305,8 @@ class Connection(pyee.EventEmitter):
             stopbits=serial.STOPBITS_ONE,
             parity=serial.PARITY_NONE,
             bytesize=serial.EIGHTBITS,
-            timeout=0)
+            timeout=0,
+            writeTimeout=0)
 
         self.serial.port = port
 
@@ -327,8 +328,8 @@ class Connection(pyee.EventEmitter):
         self.loop.add_reader(self.serial, self.can_read)
 
         # Request initial board state and updates.
-        self.serial.write(bytearray([DGT_SEND_UPDATE_NICE]))
-        self.serial.write(bytearray([DGT_SEND_BRD]))
+        self.write(bytearray([DGT_SEND_UPDATE_NICE]))
+        self.write(bytearray([DGT_SEND_BRD]))
 
         self.connected.set()
 
@@ -378,6 +379,8 @@ class Connection(pyee.EventEmitter):
         self.remaining_header_length = 3
         self.remaining_message_length = 0
 
+        self.write_buffer = b""
+
         self.clock_state = None
         self.board_state = None
 
@@ -415,6 +418,30 @@ class Connection(pyee.EventEmitter):
                 self.header_buffer = b""
                 self.remaining_header_length = 3
                 self.message_buffer = b""
+
+    def write(self, buf):
+        # Start writer.
+        if not self.write_buffer:
+            self.loop.add_writer(self.serial, self.can_write)
+
+        # Append to buffer.
+        self.write_buffer += buf
+
+    def can_write(self):
+        # Write as much as possible without blocking.
+        try:
+            bytes_written = self.serial.write(self.write_buffer)
+            LOGGER.debug("Sent: %s", " ".join(format(c, "02x") for c in self.write_buffer[:bytes_written]))
+        except (TypeError, OSError, serial.SerialException):
+            LOGGER.exception("Error writing to serial port")
+            self.disconnect()
+        else:
+            # Remove written bytes from buffer.
+            self.write_buffer = self.write_buffer[bytes_written:]
+        finally:
+            # Stop writer.
+            if not self.write_buffer:
+                self.loop.remove_writer(self.serial)
 
     def process_message(self, message_id, message):
         LOGGER.debug("Message %s: %s", hex(message_id), " ".join(format(c, "02x") for c in message))
@@ -490,7 +517,7 @@ class Connection(pyee.EventEmitter):
         """Coroutine. Get the board version."""
         self.version_received.clear()
         yield from self.connected.wait()
-        self.serial.write(bytearray([DGT_SEND_VERSION]))
+        self.write(bytearray([DGT_SEND_VERSION]))
         yield from self.version_received.wait()
         return self.version
 
@@ -501,7 +528,7 @@ class Connection(pyee.EventEmitter):
         """
         self.board_received.clear()
         yield from self.connected.wait()
-        self.serial.write(bytearray([DGT_SEND_BRD]))
+        self.write(bytearray([DGT_SEND_BRD]))
         yield from self.board_received.wait()
         return self.board.copy()
 
@@ -510,7 +537,7 @@ class Connection(pyee.EventEmitter):
         """Coroutine. Get the board serial number."""
         self.serialnr_received.clear()
         yield from self.connected.wait()
-        self.serial.write(bytearray([DGT_RETURN_SERIALNR]))
+        self.write(bytearray([DGT_RETURN_SERIALNR]))
         yield from self.serialnr_received.wait()
         return self.serialnr
 
@@ -519,7 +546,7 @@ class Connection(pyee.EventEmitter):
         """Coroutine. Get the long variant of the board serial number."""
         self.long_serialnr_received.clear()
         yield from self.connected.wait()
-        self.serial.write(bytearray([DGT_RETURN_LONG_SERIALNR]))
+        self.write(bytearray([DGT_RETURN_LONG_SERIALNR]))
         yield from self.long_serialnr_received.wait()
         return self.long_serialnr
 
@@ -528,12 +555,12 @@ class Connection(pyee.EventEmitter):
         """Coroutine. Get the clock version."""
         self.clock_version_received.clear()
         yield from self.connected.wait()
-        self.serial.write([
+        self.write(bytearray([
             DGT_CLOCK_MESSAGE, 3,
             DGT_CLOCK_START_MESSAGE,
             DGT_CLOCK_SEND_VERSION,
             DGT_CLOCK_END_MESSAGE,
-        ])
+        ]))
         yield from self.clock_version_received.wait()
         return self.clock_version
 
@@ -548,7 +575,7 @@ class Connection(pyee.EventEmitter):
 
         with (yield from self.clock_lock):
             self.clock_ack_received.clear()
-            self.serial.write(bytearray([
+            self.write(bytearray([
                 DGT_CLOCK_MESSAGE, 4,
                 DGT_CLOCK_START_MESSAGE,
                 DGT_CLOCK_BEEP,
@@ -569,25 +596,25 @@ class Connection(pyee.EventEmitter):
             if self.clock_version.startswith("2."):
                 # DGT 3000.
                 t = _center_text(text, 8)
-                self.serial.write([
+                self.write(bytearray([
                     DGT_CLOCK_MESSAGE, 12,
                     DGT_CLOCK_START_MESSAGE,
                     DGT_CLOCK_ASCII,
                 ] + [c for c in t] + [
                     0x01,
                     DGT_CLOCK_END_MESSAGE,
-                ])
+                ]))
             else:
                 # DGT XL.
                 t = _center_text(text, 6)
-                self.serial.write([
+                self.write(bytearray([
                     DGT_CLOCK_MESSAGE, 11,
                     DGT_CLOCK_START_MESSAGE,
                     DGT_CLOCK_DISPLAY,
                     t[2], t[1], t[0], t[5], t[4], t[3], 0x00,
                     0x01,
                     DGT_CLOCK_END_MESSAGE
-                ])
+                ]))
 
     def __enter__(self):
         if self.connect():
