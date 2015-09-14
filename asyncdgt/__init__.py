@@ -27,6 +27,7 @@ __version__ = "0.0.1"
 
 
 import asyncio
+import collections
 import serial
 import sys
 import pyee
@@ -212,6 +213,10 @@ class Board(object):
         return "Board({0})".format(repr(self.board_fen()))
 
 
+class Clock(collections.namedtuple("Clock", ["left_time", "right_time", "left_up"])):
+    pass
+
+
 class Connection(pyee.EventEmitter):
     """
     Manages a DGT board connection.
@@ -325,6 +330,8 @@ class Connection(pyee.EventEmitter):
         self.message_buffer = b""
         self.remaining_message_length = 0
 
+        self.clock_state = None
+
         self.connected.clear()
 
         if was_connected:
@@ -416,10 +423,14 @@ class Connection(pyee.EventEmitter):
 
             l_down = message[6] & 0x10
 
-            self.emit("clock",
-                bool(l_down),
+            clock_state = Clock(
                 l_hours * 60 * 60 + l_mins * 60 + l_secs,
-                r_hours * 60 * 60 + r_mins * 60 + r_secs)
+                r_hours * 60 * 60 + r_mins * 60 + r_secs,
+                bool(l_down))
+
+            if self.clock_state != clock_state:
+                self.clock_state = clock_state
+                self.emit("clock", clock_state)
         else:
             LOGGER.warning("Unknown clock message")
 

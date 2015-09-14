@@ -73,11 +73,8 @@ def main(port_globs):
         print("Button {0} pressed!".format(button))
 
     @dgt.on("clock")
-    def on_clock(ldown, lsecs, rsecs):
-        if ldown:
-            print("Clock time: > {0} | {1}".format(lsecs, rsecs))
-        else:
-            print("Clock time:   {0} | {1} <".format(lsecs, rsecs))
+    def on_clock(clock):
+        print(clock)
 
     # Get some information.
     print("Version:", loop.run_until_complete((dgt.get_version())))
