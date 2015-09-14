@@ -67,6 +67,7 @@ MESSAGE_BIT = 0x80
 DGT_CLOCK_MESSAGE = 0x2b
 DGT_CLOCK_START_MESSAGE = 0x03
 DGT_CLOCK_END_MESSAGE = 0x00
+DGT_CLOCK_DISPLAY = 0x01
 DGT_CLOCK_BEEP = 0x0b
 DGT_CLOCK_ASCII = 0x0c
 DGT_CLOCK_SEND_VERSION = 0x09
@@ -497,22 +498,34 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def clock_text(self, text):
-        t = text.ljust(4 + len(text) // 2).rjust(8).encode("ascii")
-        if len(t) > 8:
-            LOGGER.warning("Clock message to long for DGT 3000: %s", repr(text))
-
         yield from self.connected.wait()
 
+        if not self.clock_version:
+            yield from self.get_clock_version()
+
         with (yield from self.clock_lock):
-            self.serial.write([
-                DGT_CLOCK_MESSAGE, 12,
-                DGT_CLOCK_START_MESSAGE,
-                DGT_CLOCK_ASCII,
-                t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
-                0x01,
-                DGT_CLOCK_END_MESSAGE,
-            ])
-            yield from self.clock_ack_received.wait()
+            if self.clock_version.startswith("2."):
+                # DGT 3000.
+                t = _center_text(text, 8)
+                self.serial.write([
+                    DGT_CLOCK_MESSAGE, 12,
+                    DGT_CLOCK_START_MESSAGE,
+                    DGT_CLOCK_ASCII,
+                ] + [c for c in t] + [
+                    0x01,
+                    DGT_CLOCK_END_MESSAGE,
+                ])
+            else:
+                # DGT XL.
+                t = _center_text(text, 6)
+                self.serial.write([
+                    DGT_CLOCK_MESSAGE, 11,
+                    DGT_CLOCK_START_MESSAGE,
+                    DGT_CLOCK_DISPLAY,
+                    t[2], t[1], t[0], t[5], t[4], t[3], 0x00,
+                    0x01,
+                    DGT_CLOCK_END_MESSAGE
+                ])
 
     def __enter__(self):
         if self.connect():
@@ -522,6 +535,16 @@ class Connection(pyee.EventEmitter):
 
     def __exit__(self, exc_type, exc_value, traceback):
         return self.close()
+
+
+def _center_text(text, display_size):
+    text = text.ljust((len(text) + display_size) // 2).rjust(display_size)
+    bytestr = text.encode("ascii")
+    if len(bytestr) > display_size:
+        LOGGER.warning("Text %s exceeds display size of %d", repr(text), display_size)
+        return bytestr[0:8]
+    else:
+        return bytestr
 
 
 def connect(port_globs, loop):
