@@ -42,6 +42,8 @@ import os
 import itertools
 import fcntl
 import termios
+import threading
+import queue
 
 
 DGT_SEND_RESET = 0x40
@@ -237,6 +239,10 @@ class AsyncDriver(object):
         self.connection = connection
         self.disconnect()
 
+    def configure_serial(self):
+        self.connection.serial.timeout = 0
+        self.connection.serial.writeTimeout = 0
+
     def connect(self, port):
         # Hook serial device into event loop.
         self.connection.loop.add_reader(self.connection.serial, self.can_read)
@@ -309,6 +315,64 @@ class AsyncDriver(object):
                 self.connection.loop.remove_writer(self.connection.serial)
 
 
+class ThreadedDriver(object):
+
+    def __init__(self, connection):
+        self.connection = connection
+        self.write_queue = queue.Queue()
+        self.connected = False
+
+    def configure_serial(self):
+        self.connection.serial.timeout = None
+        self.connection.serial.writeTimeout = None
+
+    def disconnect(self):
+        # No longer connected.
+        self.connected = False
+
+        # Clear the write queue.
+        while not self.write_queue.empty():
+            self.write_queue.get_nowait()
+
+    def connect(self, port):
+        self.connected = True
+
+        self.write_thread = threading.Thread(target=self.write_loop)
+        self.write_thread.daemon = True
+        self.write_thread.start()
+
+        self.read_thread = threading.Thread(target=self.read_loop)
+        self.read_thread.daemon = True
+        self.read_thread.start()
+
+    def write(self, buf):
+        self.write_queue.put(buf)
+
+    def write_loop(self):
+        try:
+            while self.connected:
+                buf = self.write_queue.get()
+                self.connection.serial.write(buf)
+                self.write_queue.task_done()
+        except (TypeError, OSError, serial.SerialException):
+            LOGGER.exception("Error writing to serial port")
+            self.connection.disconnect()
+
+    def read_loop(self):
+        try:
+            while self.connected:
+                header = self.connection.serial.read(3)
+                message_id = header[0]
+                message_length = (header[1] << 7) +  header[2]
+
+                message = self.connection.serial.read(message_length - 3)
+
+                self.connection.loop.call_soon_threadsafe(self.connection.process_message, message_id, message)
+        except (TypeError, OSError, serial.SerialException):
+            LOGGER.exception("Error reading from serial port")
+            self.connection.disconnect()
+
+
 class Connection(pyee.EventEmitter):
     """
     Manages a DGT board connection.
@@ -328,7 +392,7 @@ class Connection(pyee.EventEmitter):
 
         self.serial = None
         self.board = Board()
-        self.driver = AsyncDriver(self)
+        self.driver = ThreadedDriver(self)
 
         self.version_received = asyncio.Event(loop=loop)
         self.serialnr_received = asyncio.Event(loop=loop)
@@ -385,10 +449,9 @@ class Connection(pyee.EventEmitter):
             baudrate=9600,
             stopbits=serial.STOPBITS_ONE,
             parity=serial.PARITY_NONE,
-            bytesize=serial.EIGHTBITS,
-            timeout=0,
-            writeTimeout=0)
+            bytesize=serial.EIGHTBITS)
 
+        self.driver.configure_serial()
         self.serial.port = port
 
         # Close once first to allow reconnecting after an interrupted
