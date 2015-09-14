@@ -234,6 +234,7 @@ class Connection(pyee.EventEmitter):
         self.battery_status_received = asyncio.Event(loop=loop)
         self.board_received = asyncio.Event(loop=loop)
         self.clock_version_received = asyncio.Event(loop=loop)
+        self.clock_ack_received = asyncio.Event(loop=loop)
 
         self.closed = False
         self.connected = asyncio.Event(loop=loop)
@@ -313,6 +314,8 @@ class Connection(pyee.EventEmitter):
         self.clock_version_received.clear()
         self.clock_bersion = None
 
+        self.clock_ack_received.clear()
+
         self.message_id = 0
         self.message_buffer = b""
         self.remaining_message_length = 0
@@ -378,7 +381,7 @@ class Connection(pyee.EventEmitter):
                 LOGGER.warning("Clock ACK error")
             else:
                 LOGGER.info("Clock ACK")
-
+                self.clock_ack_received.set()
             if ack1 == 0x88:
                 self.emit("button_pressed", int(chr(ack3)))
             elif ack1 == 0x09:
@@ -452,9 +455,22 @@ class Connection(pyee.EventEmitter):
         yield from self.clock_version_received.wait()
         return self.clock_version
 
-    def clock_beep(self, ms=100):
-        #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])
-        pass
+    @asyncio.coroutine
+    def clock_beep(self, seconds=0.064):
+        seconds = min(seconds, 10.0)
+        ms = seconds * 1000
+        intervals = max(int(round(ms / 64)), 1)
+
+        yield from self.connected.wait()
+        self.clock_ack_received.clear()
+        self.serial.write(bytearray([
+            DGT_CLOCK_MESSAGE, 4,
+            DGT_CLOCK_START_MESSAGE,
+            DGT_CLOCK_BEEP,
+            intervals,
+            DGT_CLOCK_END_MESSAGE,
+        ]))
+        yield from self.clock_ack_received.wait()
 
     def __enter__(self):
         if self.connect():

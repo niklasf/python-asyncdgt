@@ -80,6 +80,9 @@ def main(port_globs):
     print("Battery status:", loop.run_until_complete(dgt.get_battery_status()))
     print("Clock version:", loop.run_until_complete(dgt.get_clock_version()))
 
+    print("Beeping ...")
+    loop.run_until_complete(dgt.clock_beep(0.1))
+
     # Run the event loop.
     try:
         loop.run_forever()
