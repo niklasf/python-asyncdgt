@@ -67,6 +67,7 @@ DGT_CLOCK_MESSAGE = 0x2b
 DGT_CLOCK_START_MESSAGE = 0x03
 DGT_CLOCK_END_MESSAGE = 0x00
 DGT_CLOCK_BEEP = 0x0b
+DGT_CLOCK_ASCII = 0x0c
 DGT_CLOCK_SEND_VERSION = 0x09
 
 PIECE_TO_CHAR = {
@@ -491,6 +492,25 @@ class Connection(pyee.EventEmitter):
                 DGT_CLOCK_END_MESSAGE,
             ]))
             yield from asyncio.sleep(intervals * 0.064)
+            yield from self.clock_ack_received.wait()
+
+    @asyncio.coroutine
+    def clock_text(self, text):
+        t = text.ljust(8).encode("ascii")
+        if len(t) > 8:
+            LOGGER.warning("Clock message to long for DGT 3000: %s", repr(text))
+
+        yield from self.connected.wait()
+
+        with (yield from self.clock_lock):
+            self.serial.write([
+                DGT_CLOCK_MESSAGE, 12,
+                DGT_CLOCK_START_MESSAGE,
+                DGT_CLOCK_ASCII,
+                t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
+                0x01,
+                DGT_CLOCK_END_MESSAGE,
+            ])
             yield from self.clock_ack_received.wait()
 
     def __enter__(self):
