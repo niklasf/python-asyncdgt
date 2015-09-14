@@ -301,6 +301,7 @@ class Connection(pyee.EventEmitter):
         self.disconnect()
 
         self.serial = serial.Serial(
+            baudrate=9600,
             stopbits=serial.STOPBITS_ONE,
             parity=serial.PARITY_NONE,
             bytesize=serial.EIGHTBITS,
