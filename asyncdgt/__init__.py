@@ -29,9 +29,11 @@ __version__ = "0.0.1"
 import asyncio
 import collections
 import serial
+import serial.tools.list_ports
 import sys
 import pyee
 import glob
+import fnmatch
 import logging
 import pyee
 import copy
@@ -260,12 +262,20 @@ class Connection(pyee.EventEmitter):
         self.disconnect()
 
     def port_candidates(self):
+        # Match in the filesystem.
         for port_glob in self.port_globs:
             yield from glob.iglob(port_glob)
 
+        # Match the list of known serial devices.
+        for dev, _, _ in serial.tools.list_ports.comports():
+            for port_glob in self.port_globs:
+                if fnmatch.fnmatch(dev, port_glob):
+                    yield dev
+                    break
+
     def connect(self):
         """Try to connect. Returns the connected port or ``False``."""
-        for port in self.port_candidates():
+        for port in set(self.port_candidates()):
             try:
                 self.connect_port(port)
             except serial.SerialException:
