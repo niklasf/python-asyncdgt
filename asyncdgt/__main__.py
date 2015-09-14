@@ -77,19 +77,28 @@ def main(port_globs):
         print(clock)
 
     # Get some information.
-    print("Version:", loop.run_until_complete((dgt.get_version())))
+    print("Version:", loop.run_until_complete(dgt.get_version()))
     print("Serial:", loop.run_until_complete(dgt.get_serialnr()))
     print("Long serial:", loop.run_until_complete(dgt.get_long_serialnr()))
     print("Board:", loop.run_until_complete(dgt.get_board()).board_fen())
-    print("Clock version:", loop.run_until_complete(dgt.get_clock_version()))
 
-    print("Beeping ...")
-    loop.run_until_complete(dgt.clock_beep(0.1))
+    try:
+        print("Clock version:", loop.run_until_complete(asyncio.wait_for(dgt.get_clock_version(), 1.0)))
+    except asyncio.TimeoutError:
+        print("Clock version not send in time.")
+
+    try:
+        print("Beeping ...")
+        loop.run_until_complete(asyncio.wait_for(dgt.clock_beep(0.1), 1.0))
+    except asyncio.TimeoutError:
+        print("Beep not acknowledged in time.")
 
     print("Displaying text ...")
 
     quote = "This life, which had been the tomb of his virtue and of his honour, is but a walking shadow; a poor player, that struts and frets his hour upon the stage, and then is heard no more: it is a tale told by an idiot, full of sound and fury."
     loop.run_until_complete(display_sentence(dgt, quote))
+
+    print("Reached !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
     # Run the event loop.
     try:
@@ -109,7 +118,10 @@ def main(port_globs):
 def display_sentence(dgt, sentence):
     for word in sentence.split():
         yield from asyncio.sleep(0.1)
-        yield from dgt.clock_text(word)
+        try:
+            yield from asyncio.wait_for(dgt.clock_text(word), 0.5)
+        except asyncio.TimeoutError:
+            print("Text not displayed in time.")
 
 if __name__ == "__main__":
     port_globs = sys.argv[1:]

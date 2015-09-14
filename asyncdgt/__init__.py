@@ -366,7 +366,7 @@ class Connection(pyee.EventEmitter):
         self.board.clear()
 
         self.clock_version_received.clear()
-        self.clock_bersion = None
+        self.clock_version = None
 
         self.clock_ack_received.clear()
 
