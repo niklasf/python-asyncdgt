@@ -95,7 +95,7 @@ def main(port_globs):
 
     print("Displaying text ...")
 
-    quote = "This life, which had been the tomb of his virtue and of his honour, is but a walking shadow; a poor player, that struts and frets his hour upon the stage, and then is heard no more: it is a tale told by an idiot, full of sound and fury."
+    quote = "This life, which" #  had been the tomb of his virtue and of his honour, is but a walking shadow; a poor player, that struts and frets his hour upon the stage, and then is heard no more: it is a tale told by an idiot, full of sound and fury."
     loop.run_until_complete(display_sentence(dgt, quote))
 
     print("Reached !!!!!!!!!!!!!!!!!!!!!!!!!!!!")

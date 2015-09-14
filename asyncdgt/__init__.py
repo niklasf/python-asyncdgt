@@ -322,6 +322,8 @@ class ThreadedDriver(object):
         self.write_queue = queue.Queue()
         self.connected = False
 
+        self.shutdown_marker = object()
+
     def configure_serial(self):
         self.connection.serial.timeout = None
         self.connection.serial.writeTimeout = None
@@ -334,8 +336,15 @@ class ThreadedDriver(object):
         while not self.write_queue.empty():
             self.write_queue.get_nowait()
 
+        # Wake up the write queue.
+        self.write_queue.put(self.shutdown_marker)
+
     def connect(self, port):
         self.connected = True
+
+        # Clear the write queue.
+        while not self.write_queue.empty():
+            self.write_queue.get_nowait()
 
         self.write_thread = threading.Thread(target=self.write_loop)
         self.write_thread.daemon = True
@@ -352,6 +361,9 @@ class ThreadedDriver(object):
         try:
             while self.connected:
                 buf = self.write_queue.get()
+                if buf is self.shutdown_marker:
+                    break
+
                 self.connection.serial.write(buf)
                 self.write_queue.task_done()
         except (TypeError, OSError, serial.SerialException):
@@ -758,6 +770,7 @@ def auto_connect(loop, port_globs, lock_port=False, max_backoff=10.0):
 
     def on_disconnected():
         if not dgt.closed:
+            LOGGER.debug("Reconnection attempts will be scheduled")
             _ = loop.create_task(reconnect())
 
     dgt.on("disconnected", on_disconnected)
