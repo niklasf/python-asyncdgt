@@ -52,7 +52,7 @@ def usage():
 def main(port_globs):
     loop = asyncio.get_event_loop()
 
-    dgt = asyncdgt.auto_connect(port_globs, loop)
+    dgt = asyncdgt.auto_connect(loop, port_globs)
 
     @dgt.on("connected")
     def on_connected(port):

@@ -235,17 +235,18 @@ class Connection(pyee.EventEmitter):
     """
     Manages a DGT board connection.
 
+    *loop* is the :mod:`asyncio` event loop.
+
     *port_globs* is a list of glob expressions like ``["/dev/ttyACM*"]``. When
     connecting the first successful match will be used.
-
-    *loop* is the :mod:`asyncio` event loop.
     """
 
-    def __init__(self, port_globs, loop):
+    def __init__(self, loop, port_globs, lock_port=False):
         super().__init__()
 
-        self.port_globs = list(port_globs)
         self.loop = loop
+        self.port_globs = list(port_globs)
+        self.lock_port = lock_port
 
         self.serial = None
         self.board = Board()
@@ -312,10 +313,11 @@ class Connection(pyee.EventEmitter):
         self.serial.open()
 
         # Lock serial port.
-        try:
-            fcntl.ioctl(self.serial.fd, termios.TIOCEXCL)
-        except OSError:
-            LOGGER.warning("Could not set TIOCEXCL on port", self.serial.fd)
+        if self.lock_port:
+            try:
+                fcntl.ioctl(self.serial.fd, termios.TIOCEXCL)
+            except OSError:
+                LOGGER.warning("Could not set TIOCEXCL on port", self.serial.fd)
 
         print(self.serial.fd)
 
@@ -342,10 +344,11 @@ class Connection(pyee.EventEmitter):
             self.loop.remove_reader(self.serial)
 
             # Release serial port.
-            try:
-                fcntl.ioctl(self.serial.fd, termios.TIOCNXCL)
-            except OSError:
-                LOGGER.warning("Could set TIOCNXCL on port")
+            if self.lock_port:
+                try:
+                    fcntl.ioctl(self.serial.fd, termios.TIOCNXCL)
+                except OSError:
+                    LOGGER.warning("Could not set TIOCNXCL on port")
 
             self.serial.close()
 
@@ -604,16 +607,16 @@ def _center_text(text, display_size):
         return bytestr
 
 
-def connect(port_globs, loop):
+def connect(loop, port_globs):
     """
     Creates a :class:`asyncdgt.Connection`.
 
     Raises :exc:`IOError` when no board can be connected.
     """
-    return Connection(port_globs, loop).__enter__()
+    return Connection(loop, port_globs).__enter__()
 
 
-def auto_connect(port_globs, loop, max_backoff=10.0):
+def auto_connect(loop, port_globs, lock_port=False, max_backoff=10.0):
     """
     Creates a :class:`asyncdgt.Connection`.
 
@@ -623,7 +626,7 @@ def auto_connect(port_globs, loop, max_backoff=10.0):
     *max_backoff* is the maximum expontential backoff time in seconds. The
     exponential backoff will not be increased beyond this.
     """
-    dgt = Connection(port_globs, loop)
+    dgt = Connection(loop, port_globs, lock_port=lock_port)
 
     @asyncio.coroutine
     def reconnect():
