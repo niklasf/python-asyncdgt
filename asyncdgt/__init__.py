@@ -303,7 +303,8 @@ class Connection(pyee.EventEmitter):
         self.serial = serial.Serial(
             stopbits=serial.STOPBITS_ONE,
             parity=serial.PARITY_NONE,
-            bytesize=serial.EIGHTBITS)
+            bytesize=serial.EIGHTBITS,
+            timeout=0)
 
         self.serial.port = port
 
@@ -371,7 +372,9 @@ class Connection(pyee.EventEmitter):
         self.clock_ack_received.clear()
 
         self.message_id = 0
+        self.header_buffer = b""
         self.message_buffer = b""
+        self.remaining_header_length = 3
         self.remaining_message_length = 0
 
         self.clock_state = None
@@ -385,32 +388,31 @@ class Connection(pyee.EventEmitter):
 
     def can_read(self):
         try:
-            available_bytes = self.serial.inWaiting()
-            if not available_bytes:
-                LOGGER.warning("No bytes available")
-                return
+            # Partial header.
+            if self.remaining_header_length:
+                header_part = self.serial.read(self.remaining_header_length)
+                self.header_buffer += header_part
+                self.remaining_header_length -= len(header_part)
 
-            if not self.remaining_message_length:
-                # Check that at least 3 bytes are available.
-                if available_bytes < 3:
-                    LOGGER.warning("Very few bytes available")
+            # Header complete.
+            if not self.remaining_header_length and not self.message_buffer:
+                self.message_id = self.header_buffer[0]
+                self.remaining_message_length = (self.header_buffer[1] << 7) + self.header_buffer[2] - 3
 
-                # Start of a new message.
-                header = self.serial.read(3)
-                self.message_id = header[0]
-                self.remaining_message_length = (header[1] << 7) + header[2] - 3
-
-            # Read remaining part of the current message.
-            message = self.serial.read(min(available_bytes, self.remaining_message_length))
-            self.remaining_message_length -= len(message)
-            self.message_buffer += message
+            # Partial message.
+            if not self.remaining_header_length and self.remaining_message_length:
+                message_part = self.serial.read(self.remaining_message_length)
+                self.message_buffer += message_part
+                self.remaining_message_length -= len(message_part)
         except (TypeError, OSError, serial.SerialException):
             LOGGER.exception("Error reading from serial port")
             self.disconnect()
         else:
-            # Full message received.
-            if not self.remaining_message_length:
+            # Message complete.
+            if not self.remaining_header_length and not self.remaining_message_length:
                 self.process_message(self.message_id, self.message_buffer)
+                self.header_buffer = b""
+                self.remaining_header_length = 3
                 self.message_buffer = b""
 
     def process_message(self, message_id, message):
