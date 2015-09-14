@@ -83,6 +83,7 @@ def main(port_globs):
     print("Version:", loop.run_until_complete((dgt.get_version())))
     print("Serial:", loop.run_until_complete(dgt.get_serialnr()))
     print("Long serial:", loop.run_until_complete(dgt.get_long_serialnr()))
+    print("Trademark:", loop.run_until_complete(dgt.get_trademark()))
     print("Board:", loop.run_until_complete(dgt.get_board()).board_fen())
     print("Battery status:", loop.run_until_complete(dgt.get_battery_status()))
     print("Clock version:", loop.run_until_complete(dgt.get_clock_version()))
