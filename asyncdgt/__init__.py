@@ -212,6 +212,15 @@ class Board(object):
     def __repr__(self):
         return "Board({0})".format(repr(self.board_fen()))
 
+    def __eq__(self, other):
+        return not self.__ne__(other)
+
+    def __ne__(self, other):
+        if other is None:
+            return True
+
+        return self.state != other.state
+
 
 class Clock(collections.namedtuple("Clock", ["left_time", "right_time", "left_up"])):
     pass
@@ -331,6 +340,7 @@ class Connection(pyee.EventEmitter):
         self.remaining_message_length = 0
 
         self.clock_state = None
+        self.board_state = None
 
         self.connected.clear()
 
@@ -373,7 +383,9 @@ class Connection(pyee.EventEmitter):
         if message_id == MESSAGE_BIT | DGT_BOARD_DUMP:
             self.board.state = bytearray(message)
             self.board_received.set()
-            self.emit("board", self.board.copy())
+            if self.board != self.board_state:
+                self.board_state = self.board
+                self.emit("board", self.board.copy())
         elif message_id == MESSAGE_BIT | DGT_FIELD_UPDATE:
             self.board.state[message[0]] = message[1]
             self.emit("board", self.board.copy())
