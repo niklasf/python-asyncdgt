@@ -39,6 +39,7 @@ import pyee
 import copy
 import sys
 import os
+import itertools
 
 
 DGT_SEND_RESET = 0x40
@@ -273,9 +274,15 @@ class Connection(pyee.EventEmitter):
                     yield dev
                     break
 
+    def unique_port_candidates(self):
+        seen = set()
+        for port in itertools.filterfalse(seen.__contains__, self.port_candidates()):
+            seen.add(port)
+            yield port
+
     def connect(self):
         """Try to connect. Returns the connected port or ``False``."""
-        for port in set(self.port_candidates()):
+        for port in self.unique_port_candidates():
             try:
                 self.connect_port(port)
             except serial.SerialException:
