@@ -400,7 +400,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_version(self):
-        """Get the board version."""
+        """Coroutine. Get the board version."""
         self.version_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_VERSION]))
@@ -409,7 +409,9 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_board(self):
-        """Get the current board position as a :class:`asyncdgt.Board`."""
+        """
+        Coroutine. Get the current board position as a :class:`asyncdgt.Board`.
+        """
         self.board_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_BRD]))
@@ -418,7 +420,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_serialnr(self):
-        """Get the board serial number."""
+        """Coroutine. Get the board serial number."""
         self.serialnr_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_RETURN_SERIALNR]))
@@ -427,7 +429,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_long_serialnr(self):
-        """Get the long variant of the board serial number."""
+        """Coroutine. Get the long variant of the board serial number."""
         self.long_serialnr_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_RETURN_LONG_SERIALNR]))
@@ -436,6 +438,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_battery_status(self):
+        # TODO: How to interpret the result?
         self.battery_status_received.clear()
         yield from self.connected.wait()
         self.serial.write(bytearray([DGT_SEND_BATTERY_STATUS]))
@@ -444,6 +447,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def get_clock_version(self):
+        """Coroutine. Get the clock version."""
         self.clock_version_received.clear()
         yield from self.connected.wait()
         self.serial.write([
@@ -457,6 +461,7 @@ class Connection(pyee.EventEmitter):
 
     @asyncio.coroutine
     def clock_beep(self, seconds=0.064):
+        """Coroutine. Let the clock beep."""
         seconds = min(seconds, 10.0)
         ms = seconds * 1000
         intervals = max(int(round(ms / 64)), 1)
