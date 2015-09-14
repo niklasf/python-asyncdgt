@@ -64,8 +64,10 @@ DGT_LONG_SERIALNR = 0x22
 MESSAGE_BIT = 0x80
 
 DGT_CLOCK_MESSAGE = 0x2b
-
-DGT_CMD_CLOCK_BEEP = 0x0b
+DGT_CLOCK_START_MESSAGE = 0x03
+DGT_CLOCK_END_MESSAGE = 0x00
+DGT_CLOCK_BEEP = 0x0b
+DGT_CLOCK_SEND_VERSION = 0x09
 
 PIECE_TO_CHAR = {
     0x01: "P",
@@ -231,6 +233,7 @@ class Connection(pyee.EventEmitter):
         self.long_serialnr_received = asyncio.Event(loop=loop)
         self.battery_status_received = asyncio.Event(loop=loop)
         self.board_received = asyncio.Event(loop=loop)
+        self.clock_version_received = asyncio.Event(loop=loop)
 
         self.closed = False
         self.connected = asyncio.Event(loop=loop)
@@ -307,6 +310,9 @@ class Connection(pyee.EventEmitter):
         self.board_received.clear()
         self.board.clear()
 
+        self.clock_version_received.clear()
+        self.clock_bersion = None
+
         self.message_id = 0
         self.message_buffer = b""
         self.remaining_message_length = 0
@@ -376,9 +382,8 @@ class Connection(pyee.EventEmitter):
             if ack1 == 0x88:
                 self.emit("button_pressed", int(chr(ack3)))
             elif ack1 == 0x09:
-                main_version = ack2 >> 4
-                sub_version = ack2 & 0x0f
-                LOGGER.info("Clock version {0}.{1}".format(main_version, sub_version))
+                self.clock_version = "{0}.{1}".format(ack2 >> 4, ack2 & 0x0f)
+                self.clock_version_received.set()
         elif any(message[:6]):
             r_hours = message[0] & 0x0f
             r_mins = (message[1] >> 4) * 10 + (message[1] & 0x0f)
@@ -433,6 +438,19 @@ class Connection(pyee.EventEmitter):
         self.serial.write(bytearray([DGT_SEND_BATTERY_STATUS]))
         yield from self.battery_status_received.wait()
         return self.battery_status
+
+    @asyncio.coroutine
+    def get_clock_version(self):
+        self.clock_version_received.clear()
+        yield from self.connected.wait()
+        self.serial.write([
+            DGT_CLOCK_MESSAGE, 3,
+            DGT_CLOCK_START_MESSAGE,
+            DGT_CLOCK_SEND_VERSION,
+            DGT_CLOCK_END_MESSAGE,
+        ])
+        yield from self.clock_version_received.wait()
+        return self.clock_version
 
     def clock_beep(self, ms=100):
         #self.serial.write([DGT_CLOCK_MESSAGE, 0x03, DGT_CMD_CLOCK_BEEP, 0x01, 0x00])

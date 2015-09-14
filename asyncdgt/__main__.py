@@ -78,6 +78,7 @@ def main(port_globs):
     print("Long serial:", loop.run_until_complete(dgt.get_long_serialnr()))
     print("Board:", loop.run_until_complete(dgt.get_board()).board_fen())
     print("Battery status:", loop.run_until_complete(dgt.get_battery_status()))
+    print("Clock version:", loop.run_until_complete(dgt.get_clock_version()))
 
     # Run the event loop.
     try:
