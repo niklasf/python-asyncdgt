@@ -35,6 +35,7 @@ import logging
 import pyee
 import copy
 import sys
+import os
 
 
 DGT_SEND_RESET = 0x40
@@ -350,7 +351,7 @@ class Connection(pyee.EventEmitter):
             message = self.serial.read(min(available_bytes, self.remaining_message_length))
             self.remaining_message_length -= len(message)
             self.message_buffer += message
-        except (TypeError, serial.SerialException):
+        except (TypeError, OSError, serial.SerialException):
             self.disconnect()
         else:
             # Full message received.
