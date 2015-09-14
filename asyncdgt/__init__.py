@@ -297,9 +297,11 @@ class Connection(pyee.EventEmitter):
         return False
 
     def connect_port(self, port):
+        # Clean up possible previous connections.
         self.closed = False
         self.disconnect()
 
+        # Configure port.
         self.serial = serial.Serial(
             baudrate=9600,
             stopbits=serial.STOPBITS_ONE,
@@ -322,15 +324,17 @@ class Connection(pyee.EventEmitter):
             except OSError:
                 LOGGER.warning("Could not set TIOCEXCL on port", self.serial.fd)
 
-        LOGGER.info("Connected to %s", port)
-        self.emit("connected", port)
 
+        # Hook serial device into event loop.
         self.loop.add_reader(self.serial, self.can_read)
 
         # Request initial board state and updates.
         self.write(bytearray([DGT_SEND_UPDATE_NICE]))
         self.write(bytearray([DGT_SEND_BRD]))
 
+        # Fire connected event.
+        LOGGER.info("Connected to %s", port)
+        self.emit("connected", port)
         self.connected.set()
 
     def close(self):
@@ -342,7 +346,9 @@ class Connection(pyee.EventEmitter):
         was_connected = self.serial is not None
 
         if was_connected:
+            # Unhook serial device from event loop.
             self.loop.remove_reader(self.serial)
+            self.loop.remove_writer(self.serial)
 
             # Release serial port.
             if self.lock_port:
@@ -428,11 +434,12 @@ class Connection(pyee.EventEmitter):
         self.write_buffer += buf
 
     def can_write(self):
-        # Write as much as possible without blocking.
         try:
+            # Write as much as possible without blocking.
             bytes_written = self.serial.write(self.write_buffer)
             LOGGER.debug("Sent: %s", " ".join(format(c, "02x") for c in self.write_buffer[:bytes_written]))
         except (TypeError, OSError, serial.SerialException):
+            # Connection failed.
             LOGGER.exception("Error writing to serial port")
             self.disconnect()
         else:
