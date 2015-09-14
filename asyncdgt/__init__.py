@@ -407,7 +407,12 @@ class Connection(pyee.EventEmitter):
 
         self.serial = None
         self.board = Board()
-        self.driver = ThreadedDriver(self)
+
+        if os.name not in ["nt"]:
+            self.driver = AsyncDriver(self)
+        else:
+            logging.info("Using threaded driver on Windows")
+            self.driver = ThreadedDriver(self)
 
         self.version_received = asyncio.Event(loop=loop)
         self.serialnr_received = asyncio.Event(loop=loop)
