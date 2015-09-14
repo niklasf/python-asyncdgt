@@ -373,28 +373,39 @@ class Connection(pyee.EventEmitter):
 
     def _process_bwtime(self, message):
         if message[0] & 0x0f == 0x0A or message[3] == 0x0A:
+            # Handle Clock ACKs.
             ack0 = (message[1] & 0x7f) | (message[3] << 3) & 0x80
             ack1 = (message[2] & 0x7f) | (message[3] << 2) & 0x80
             ack2 = (message[4] & 0x7f) | (message[0] << 3) & 0x80
             ack3 = (message[5] & 0x7f) | (message[0] << 2) & 0x80
             if ack0 != 0x10:
                 LOGGER.warning("Clock ACK error")
+                return
             else:
-                LOGGER.info("Clock ACK")
                 self.clock_ack_received.set()
+
             if ack1 == 0x88:
+                # Button pressed.
                 self.emit("button_pressed", int(chr(ack3)))
             elif ack1 == 0x09:
+                # Version received.
                 self.clock_version = "{0}.{1}".format(ack2 >> 4, ack2 & 0x0f)
                 self.clock_version_received.set()
         elif any(message[:6]):
+            # Clock time updated.
             r_hours = message[0] & 0x0f
             r_mins = (message[1] >> 4) * 10 + (message[1] & 0x0f)
             r_secs = (message[2] >> 4) * 10 + (message[2] & 0x0f)
             l_hours = message[3] & 0x0f
             l_mins = (message[4] >> 4) * 10 + (message[4] & 0x0f)
             l_secs = (message[5] >> 4) * 10 + (message[5] & 0x0f)
-            LOGGER.info("Clock time: %d:%02d:%02d %d:%02d:%02d", l_hours, l_mins, l_secs, r_hours, r_mins, r_secs)
+
+            l_down = message[6] & 0x10
+
+            self.emit("clock",
+                bool(l_down),
+                l_hours * 60 * 60 + l_mins * 60 + l_secs,
+                r_hours * 60 * 60 + r_mins * 60 + r_secs)
         else:
             LOGGER.warning("Unknown clock message")
 
