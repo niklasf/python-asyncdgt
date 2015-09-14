@@ -340,6 +340,9 @@ class ThreadedDriver(object):
         self.write_queue.put(self.shutdown_marker)
 
     def connect(self, port):
+        if self.connected:
+            return
+
         self.connected = True
 
         # Clear the write queue.
@@ -368,7 +371,7 @@ class ThreadedDriver(object):
                 self.write_queue.task_done()
         except (TypeError, OSError, serial.SerialException):
             LOGGER.exception("Error writing to serial port")
-            self.connection.disconnect()
+            self.connection.loop.call_soon_threadsafe(self.connection.disconnect)
 
     def read_loop(self):
         try:
@@ -382,7 +385,7 @@ class ThreadedDriver(object):
                 self.connection.loop.call_soon_threadsafe(self.connection.process_message, message_id, message)
         except (TypeError, OSError, serial.SerialException):
             LOGGER.exception("Error reading from serial port")
-            self.connection.disconnect()
+            self.connection.loop.call_soon_threadsafe(self.connection.disconnect)
 
 
 class Connection(pyee.EventEmitter):
@@ -509,6 +512,8 @@ class Connection(pyee.EventEmitter):
                     LOGGER.warning("Could not set TIOCNXCL on port")
 
             self.serial.close()
+
+        self.serial = None
 
         self.version_received.clear()
         self.version = None
@@ -761,9 +766,11 @@ def auto_connect(loop, port_globs, lock_port=False, max_backoff=10.0):
         backoff = 0.5
         connected = False
 
-        while not connected and not dgt.closed:
+        while not dgt.closed:
             LOGGER.debug("Trying to connect")
             connected = dgt.connect()
+            if connected:
+                break
 
             yield from asyncio.sleep(backoff)
             backoff = min(backoff * 2, max_backoff)
