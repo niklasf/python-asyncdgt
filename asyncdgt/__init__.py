@@ -461,24 +461,6 @@ class Connection(pyee.EventEmitter):
         return self.long_serialnr
 
     @asyncio.coroutine
-    def get_trademark(self):
-        #"""Coroutine. Get trademark."""
-        # TODO
-        #yield from self.connected.wait()
-        #self.serial.write(bytearray([DGT_TRADEMARK]))
-        pass
-
-    @asyncio.coroutine
-    def get_battery_status(self):
-        # TODO: How to interpret the result?
-        #self.battery_status_received.clear()
-        #yield from self.connected.wait()
-        #self.serial.write(bytearray([DGT_SEND_BATTERY_STATUS]))
-        #yield from self.battery_status_received.wait()
-        #return self.battery_status
-        pass
-
-    @asyncio.coroutine
     def get_clock_version(self):
         """Coroutine. Get the clock version."""
         self.clock_version_received.clear()
