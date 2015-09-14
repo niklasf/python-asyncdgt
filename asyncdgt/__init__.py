@@ -319,8 +319,6 @@ class Connection(pyee.EventEmitter):
             except OSError:
                 LOGGER.warning("Could not set TIOCEXCL on port", self.serial.fd)
 
-        print(self.serial.fd)
-
         LOGGER.info("Connected to %s", port)
         self.emit("connected", port)
 
