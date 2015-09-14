@@ -236,6 +236,8 @@ class Connection(pyee.EventEmitter):
         self.clock_version_received = asyncio.Event(loop=loop)
         self.clock_ack_received = asyncio.Event(loop=loop)
 
+        self.clock_lock = asyncio.Lock(loop=loop)
+
         self.closed = False
         self.connected = asyncio.Event(loop=loop)
         self.disconnect()
@@ -478,15 +480,18 @@ class Connection(pyee.EventEmitter):
         intervals = max(int(round(ms / 64)), 1)
 
         yield from self.connected.wait()
-        self.clock_ack_received.clear()
-        self.serial.write(bytearray([
-            DGT_CLOCK_MESSAGE, 4,
-            DGT_CLOCK_START_MESSAGE,
-            DGT_CLOCK_BEEP,
-            intervals,
-            DGT_CLOCK_END_MESSAGE,
-        ]))
-        yield from self.clock_ack_received.wait()
+
+        with (yield from self.clock_lock):
+            self.clock_ack_received.clear()
+            self.serial.write(bytearray([
+                DGT_CLOCK_MESSAGE, 4,
+                DGT_CLOCK_START_MESSAGE,
+                DGT_CLOCK_BEEP,
+                intervals,
+                DGT_CLOCK_END_MESSAGE,
+            ]))
+            yield from asyncio.sleep(intervals * 0.064)
+            yield from self.clock_ack_received.wait()
 
     def __enter__(self):
         if self.connect():
