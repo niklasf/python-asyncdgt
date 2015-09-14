@@ -231,6 +231,84 @@ class Clock(collections.namedtuple("Clock", ["left_time", "right_time", "left_up
     pass
 
 
+class AsyncDriver(object):
+
+    def __init__(self, connection):
+        self.connection = connection
+        self.disconnect()
+
+    def connect(self, port):
+        # Hook serial device into event loop.
+        self.connection.loop.add_reader(self.connection.serial, self.can_read)
+
+    def disconnect(self):
+        if self.connection.serial:
+            self.connection.loop.remove_reader(self.connection.serial)
+            self.connection.loop.remove_writer(self.connection.serial)
+
+        self.message_id = 0
+        self.header_buffer = b""
+        self.message_buffer = b""
+        self.remaining_header_length = 3
+        self.remaining_message_length = 0
+
+        self.write_buffer = b""
+
+    def can_read(self):
+        try:
+            # Partial header.
+            if self.remaining_header_length:
+                header_part = self.connection.serial.read(self.remaining_header_length)
+                self.header_buffer += header_part
+                self.remaining_header_length -= len(header_part)
+
+            # Header complete.
+            if not self.remaining_header_length and not self.message_buffer:
+                self.message_id = self.header_buffer[0]
+                self.remaining_message_length = (self.header_buffer[1] << 7) + self.header_buffer[2] - 3
+
+            # Partial message.
+            if not self.remaining_header_length and self.remaining_message_length:
+                message_part = self.connection.serial.read(self.remaining_message_length)
+                self.message_buffer += message_part
+                self.remaining_message_length -= len(message_part)
+        except (TypeError, OSError, serial.SerialException):
+            LOGGER.exception("Error reading from serial port")
+            self.connection.disconnect()
+        else:
+            # Message complete.
+            if not self.remaining_header_length and not self.remaining_message_length:
+                self.connection.process_message(self.message_id, self.message_buffer)
+                self.header_buffer = b""
+                self.remaining_header_length = 3
+                self.message_buffer = b""
+
+    def write(self, buf):
+        # Start writer.
+        if not self.write_buffer:
+            self.connection.loop.add_writer(self.connection.serial, self.can_write)
+
+        # Append to buffer.
+        self.write_buffer += buf
+
+    def can_write(self):
+        try:
+            # Write as much as possible without blocking.
+            bytes_written = self.connection.serial.write(self.write_buffer)
+            LOGGER.debug("Sent: %s", " ".join(format(c, "02x") for c in self.write_buffer[:bytes_written]))
+        except (TypeError, OSError, serial.SerialException):
+            # Connection failed.
+            LOGGER.exception("Error writing to serial port")
+            self.connection.disconnect()
+        else:
+            # Remove written bytes from buffer.
+            self.write_buffer = self.write_buffer[bytes_written:]
+        finally:
+            # Stop writer.
+            if not self.write_buffer:
+                self.connection.loop.remove_writer(self.connection.serial)
+
+
 class Connection(pyee.EventEmitter):
     """
     Manages a DGT board connection.
@@ -250,6 +328,7 @@ class Connection(pyee.EventEmitter):
 
         self.serial = None
         self.board = Board()
+        self.driver = AsyncDriver(self)
 
         self.version_received = asyncio.Event(loop=loop)
         self.serialnr_received = asyncio.Event(loop=loop)
@@ -324,9 +403,8 @@ class Connection(pyee.EventEmitter):
             except OSError:
                 LOGGER.warning("Could not set TIOCEXCL on port", self.serial.fd)
 
-
-        # Hook serial device into event loop.
-        self.loop.add_reader(self.serial, self.can_read)
+        # Notify driver of new connection.
+        self.driver.connect(port)
 
         # Request initial board state and updates.
         self.write(bytearray([DGT_SEND_UPDATE_NICE]))
@@ -345,11 +423,9 @@ class Connection(pyee.EventEmitter):
     def disconnect(self):
         was_connected = self.serial is not None
 
-        if was_connected:
-            # Unhook serial device from event loop.
-            self.loop.remove_reader(self.serial)
-            self.loop.remove_writer(self.serial)
+        self.driver.disconnect()
 
+        if was_connected:
             # Release serial port.
             if self.lock_port:
                 try:
@@ -379,14 +455,6 @@ class Connection(pyee.EventEmitter):
 
         self.clock_ack_received.clear()
 
-        self.message_id = 0
-        self.header_buffer = b""
-        self.message_buffer = b""
-        self.remaining_header_length = 3
-        self.remaining_message_length = 0
-
-        self.write_buffer = b""
-
         self.clock_state = None
         self.board_state = None
 
@@ -396,59 +464,8 @@ class Connection(pyee.EventEmitter):
             LOGGER.info("Disconnected")
             self.emit("disconnected")
 
-    def can_read(self):
-        try:
-            # Partial header.
-            if self.remaining_header_length:
-                header_part = self.serial.read(self.remaining_header_length)
-                self.header_buffer += header_part
-                self.remaining_header_length -= len(header_part)
-
-            # Header complete.
-            if not self.remaining_header_length and not self.message_buffer:
-                self.message_id = self.header_buffer[0]
-                self.remaining_message_length = (self.header_buffer[1] << 7) + self.header_buffer[2] - 3
-
-            # Partial message.
-            if not self.remaining_header_length and self.remaining_message_length:
-                message_part = self.serial.read(self.remaining_message_length)
-                self.message_buffer += message_part
-                self.remaining_message_length -= len(message_part)
-        except (TypeError, OSError, serial.SerialException):
-            LOGGER.exception("Error reading from serial port")
-            self.disconnect()
-        else:
-            # Message complete.
-            if not self.remaining_header_length and not self.remaining_message_length:
-                self.process_message(self.message_id, self.message_buffer)
-                self.header_buffer = b""
-                self.remaining_header_length = 3
-                self.message_buffer = b""
-
     def write(self, buf):
-        # Start writer.
-        if not self.write_buffer:
-            self.loop.add_writer(self.serial, self.can_write)
-
-        # Append to buffer.
-        self.write_buffer += buf
-
-    def can_write(self):
-        try:
-            # Write as much as possible without blocking.
-            bytes_written = self.serial.write(self.write_buffer)
-            LOGGER.debug("Sent: %s", " ".join(format(c, "02x") for c in self.write_buffer[:bytes_written]))
-        except (TypeError, OSError, serial.SerialException):
-            # Connection failed.
-            LOGGER.exception("Error writing to serial port")
-            self.disconnect()
-        else:
-            # Remove written bytes from buffer.
-            self.write_buffer = self.write_buffer[bytes_written:]
-        finally:
-            # Stop writer.
-            if not self.write_buffer:
-                self.loop.remove_writer(self.serial)
+        return self.driver.write(buf)
 
     def process_message(self, message_id, message):
         LOGGER.debug("Message %s: %s", hex(message_id), " ".join(format(c, "02x") for c in message))
@@ -475,9 +492,9 @@ class Connection(pyee.EventEmitter):
             self.battery_status = "".join(chr(c) for c in message if c)
             self.battery_status_received.set()
         elif message_id == MESSAGE_BIT | DGT_BWTIME:
-            self._process_bwtime(message)
+            self.process_bwtime(message)
 
-    def _process_bwtime(self, message):
+    def process_bwtime(self, message):
         if message[0] & 0x0f == 0x0A or message[3] == 0x0A:
             # Handle Clock ACKs.
             ack0 = (message[1] & 0x7f) | (message[3] << 3) & 0x80
