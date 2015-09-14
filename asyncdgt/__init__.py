@@ -407,6 +407,14 @@ class Connection(pyee.EventEmitter):
 
     *port_globs* is a list of glob expressions like ``["/dev/ttyACM*"]``. When
     connecting the first successful match will be used.
+
+    Provides events:
+
+    * ``connected(port)``. When the board is connected.
+    * ``disconnected()``. When the board is disconnected.
+    * ``board(board)``. When the position on the board changed.
+    * ``clock(clock)``. When the clock status changed.
+    * ``button_pressed(button)``. When a clock button has been pressed.
     """
 
     def __init__(self, loop, port_globs, lock_port=False):
