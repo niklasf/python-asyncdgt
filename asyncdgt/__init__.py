@@ -288,9 +288,9 @@ class Connection(pyee.EventEmitter):
         for port in self.unique_port_candidates():
             try:
                 self.connect_port(port)
-            except serial.SerialException:
+            except serial.SerialException as err:
                 self.serial = None
-                LOGGER.exception("Could not connect to port %s", port)
+                LOGGER.error("Could not connect to port %s: %s", port, err)
             else:
                 return port
 
@@ -407,6 +407,7 @@ class Connection(pyee.EventEmitter):
             self.remaining_message_length -= len(message)
             self.message_buffer += message
         except (TypeError, OSError, serial.SerialException):
+            LOGGER.exception("Error reading from serial port")
             self.disconnect()
         else:
             # Full message received.
