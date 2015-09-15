@@ -37,8 +37,6 @@ import serial
 import serial.tools.list_ports
 
 
-
-
 def usage():
     # Print usage information.
     print(__doc__.strip())
@@ -123,6 +121,7 @@ def main(port_globs):
 
     return 0
 
+
 @asyncio.coroutine
 def clock_display_sentence(dgt, sentence):
     for word in sentence.split():
@@ -132,6 +131,7 @@ def clock_display_sentence(dgt, sentence):
             yield from asyncio.wait_for(dgt.clock_text(word), 0.5)
         except asyncio.TimeoutError:
             print("Sending clock text timed out.")
+
 
 if __name__ == "__main__":
     if "--debug" in sys.argv:
