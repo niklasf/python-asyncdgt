@@ -76,6 +76,8 @@ DGT_CLOCK_MESSAGE = 0x2b
 DGT_CLOCK_START_MESSAGE = 0x03
 DGT_CLOCK_END_MESSAGE = 0x00
 DGT_CLOCK_DISPLAY = 0x01
+DGT_CLOCK_END = 0x03
+DGT_CLOCK_SETNRUN = 0x0a
 DGT_CLOCK_BEEP = 0x0b
 DGT_CLOCK_ASCII = 0x0c
 DGT_CLOCK_SEND_VERSION = 0x09
@@ -754,6 +756,45 @@ class Connection(pyee.EventEmitter):
                     0x01,
                     DGT_CLOCK_END_MESSAGE
                 ]))
+
+            yield from asyncio.sleep(0.064)
+
+    @asyncio.coroutine
+    def clock_set(self, left_time, right_time, left_running=False, right_running=False):
+        """Coroutine. Setup the clock and start or stop countdowns."""
+        l_mins, l_secs = divmod(left_time, 60)
+        l_hours, l_mins = divmod(l_mins, 60)
+
+        r_mins, r_secs = divmod(right_time, 60)
+        r_hours, r_mins = divmod(r_mins, 60)
+
+        status = 0x00
+        if left_running:
+            status |= 0x01
+        if right_running:
+            status |= 0x02
+
+        yield from self.connected.wait()
+
+        with (yield from self.clock_lock):
+            self.clock_ack_received.clear()
+
+            self.write(bytearray([
+                DGT_CLOCK_MESSAGE, 10,
+                DGT_CLOCK_START_MESSAGE,
+                DGT_CLOCK_SETNRUN,
+                l_hours, l_mins, l_secs, r_hours, r_mins, r_secs, status,
+                DGT_CLOCK_END_MESSAGE
+            ]))
+
+            self.write(bytearray([
+                DGT_CLOCK_MESSAGE, 3,
+                DGT_CLOCK_START_MESSAGE,
+                DGT_CLOCK_END,
+                DGT_CLOCK_END_MESSAGE,
+            ]))
+
+            yield from asyncio.sleep(0.064)
 
     def __enter__(self):
         if self.connect():

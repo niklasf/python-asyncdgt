@@ -94,12 +94,19 @@ def main(port_globs):
     quote = "Now, I am become death, the destroyer of worlds. Ready"
     loop.run_until_complete(clock_display_sentence(dgt, quote))
 
-    # Let the clock beep
+    # Let the clock beep.
     try:
         print("Beep ...")
         loop.run_until_complete(asyncio.wait_for(dgt.clock_beep(0.1), 1.0))
     except asyncio.TimeoutError:
         print("Beep not acknowledged in time.")
+
+    # Start a countdown.
+    try:
+        print("Countdown ...")
+        loop.run_until_complete(asyncio.wait_for(dgt.clock_set(left_time=10, right_time=7, left_running=True), 1.0))
+    except asyncio.TimeoutError:
+        print("Clock does not respond.")
 
     # Run the event loop.
     print("Running event loop ...")
