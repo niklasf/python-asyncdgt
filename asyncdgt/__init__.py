@@ -629,12 +629,12 @@ class Connection(pyee.EventEmitter):
             l_mins = (message[4] >> 4) * 10 + (message[4] & 0x0f)
             l_secs = (message[5] >> 4) * 10 + (message[5] & 0x0f)
 
-            l_down = message[6] & 0x10
+            l_up = message[6] in [0x10, 0x09]
 
             clock_state = Clock(
                 l_hours * 60 * 60 + l_mins * 60 + l_secs,
                 r_hours * 60 * 60 + r_mins * 60 + r_secs,
-                bool(l_down))
+                bool(l_up))
 
             if self.clock_state != clock_state:
                 self.clock_state = clock_state
