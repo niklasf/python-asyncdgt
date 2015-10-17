@@ -30,14 +30,11 @@ import asyncio
 import collections
 import serial
 import serial.tools.list_ports
-import sys
 import pyee
 import glob
 import fnmatch
 import logging
-import pyee
 import copy
-import sys
 import os
 import itertools
 import fcntl
@@ -154,7 +151,6 @@ class Board(object):
         rows = fen.split("/")
         if len(rows) != 8:
             raise ValueError("expected 8 rows in the fen: {0}".format(repr(fen)))
-
 
         # Validate each row.
         for row in rows:
@@ -391,7 +387,7 @@ class ThreadedDriver(object):
             while self.connected:
                 header = self.connection.serial.read(3)
                 message_id = header[0]
-                message_length = (header[1] << 7) +  header[2]
+                message_length = (header[1] << 7) + header[2]
 
                 message = self.connection.serial.read(message_length - 3)
 
@@ -853,7 +849,7 @@ def auto_connect(loop, port_globs, lock_port=False, max_backoff=10.0):
 
     def on_disconnected():
         if not dgt.closed:
-            _ = loop.create_task(reconnect())
+            loop.create_task(reconnect())
 
     dgt.on("disconnected", on_disconnected)
 
