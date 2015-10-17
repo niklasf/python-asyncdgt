@@ -15,16 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-Communicate asynchronously with DGT boards.
-"""
 
-__author__ = "Niklas Fiekas"
-
-__email__ = "niklas.fiekas@tu-clausthal.de"
-
-__version__ = "0.0.1"
-
+from asyncdgt._info import __doc__
+from asyncdgt._info import __author__
+from asyncdgt._info import __email__
+from asyncdgt._info import __version__
 
 import asyncio
 import collections

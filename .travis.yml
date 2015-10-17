@@ -2,5 +2,6 @@ language: python
 sudo: false
 python:
  - "3.4"
-script:
- - python test.py --verbose
+ - "3.5"
+install: pip install tox-travis
+script: tox
