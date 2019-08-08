@@ -21,7 +21,7 @@ Create an event loop and a connection to the DGT board.
     import asyncio
 
     loop = asyncio.get_event_loop()
-    dgt = asyncdgt.auto_connect(["/dev/ttyACM*"], loop)
+    dgt = asyncdgt.auto_connect(loop, ["/dev/ttyACM*"])
 
 Register some `pyee <https://github.com/jfhbrook/pyee>`__ event handlers. They
 will be called whenever a board gets connected, disconnected or the position
