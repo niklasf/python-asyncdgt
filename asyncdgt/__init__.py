@@ -32,8 +32,6 @@ import logging
 import copy
 import os
 import itertools
-import fcntl
-import termios
 import threading
 import queue
 
@@ -494,8 +492,10 @@ class Connection(pyee.EventEmitter):
         # Lock serial port.
         if self.lock_port:
             try:
+                import fcntl
+                import termios
                 fcntl.ioctl(self.serial.fd, termios.TIOCEXCL)
-            except OSError:
+            except (ImportError, OSError):
                 LOGGER.warning("Could not set TIOCEXCL on port", self.serial.fd)
 
         # Notify driver of new connection.
@@ -524,8 +524,10 @@ class Connection(pyee.EventEmitter):
             # Release serial port.
             if self.lock_port:
                 try:
+                    import fcntl
+                    import termios
                     fcntl.ioctl(self.serial.fd, termios.TIOCNXCL)
-                except OSError:
+                except (ImportError, OSError):
                     LOGGER.warning("Could not set TIOCNXCL on port")
 
             self.serial.close()
