@@ -441,7 +441,10 @@ class Connection(pyee.EventEmitter):
     def port_candidates(self):
         # Match in the filesystem.
         for port_glob in self.port_globs:
-            yield from glob.iglob(port_glob)
+            if "://" in port_glob:
+                yield port_glob
+            else:
+                yield from glob.iglob(port_glob)
 
         # Match the list of known serial devices.
         for dev, _, _ in serial.tools.list_ports.comports():
@@ -475,14 +478,13 @@ class Connection(pyee.EventEmitter):
         self.disconnect()
 
         # Configure port.
-        self.serial = serial.Serial(
-            baudrate=9600,
-            stopbits=serial.STOPBITS_ONE,
-            parity=serial.PARITY_NONE,
-            bytesize=serial.EIGHTBITS)
+        self.serial = serial.serial_for_url(port, do_not_open=True)
+        self.serial.baudrate = 9600
+        self.serial.stopbits = serial.STOPBITS_ONE
+        self.serial.parity = serial.PARITY_NONE
+        self.serial.bytesize = serial.EIGHTBITS
 
         self.driver.configure_serial()
-        self.serial.port = port
 
         # Close once first to allow reconnecting after an interrupted
         # connection.
